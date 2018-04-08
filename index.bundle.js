@@ -1037,3 +1037,58 @@ var VexLib = function (_EventEmitter) {
 }(_events2.default);
 
 exports.default = VexLib;
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
+
+exports.limit8Decimals = limit8Decimals;
+exports.sanitizeDecimals = sanitizeDecimals;
+exports.softLimit8Decimals = softLimit8Decimals;
+var SATOSHIS = exports.SATOSHIS = 100000000;
+
+function limit8Decimals(v) {
+  if (v.length > 8) {
+    return v.slice(0, 8);
+  } else if (v.length === 8) {
+    return v;
+  } else {
+    return v + new Array(8 - v.length).fill(0).join('');
+  }
+}
+
+function sanitizeDecimals(n) {
+  var v = n + '';
+  var num = v.split('.');
+
+  if (num.length > 1) {
+    return num[0] + '.' + limit8Decimals(num[1]);
+  } else {
+    return num[0] + '.00000000';
+  }
+}
+
+function softLimit8Decimals(v) {
+  if (!v) {
+    return v;
+  } else {
+    v = '' + v;
+    if (v.indexOf('.') < 0) {
+      return v;
+    } else {
+      var _v$split = v.split('.'),
+          _v$split2 = _slicedToArray(_v$split, 2),
+          i = _v$split2[0],
+          d = _v$split2[1];
+
+      if (d.length > 8) {
+        return i + '.' + d.slice(0, 8);
+      } else if (v.length <= 8) {
+        return i + '.' + d;
+      }
+    }
+  }
+}
