@@ -1,0 +1,10 @@
+{
+  "name": "vexlib-js",
+  "version": "0.1.0",
+  "description": "Biblioteca para interactuar con vex",
+  "main": "index.js",
+  "repository": "ssh://git@192.168.3.6:10022/vex/vexlib-js.git",
+  "author": "John Villar <johnvillar@contimita.com>",
+  "license": "UNLICENSED",
+  "private": true
+}
