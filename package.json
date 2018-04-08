@@ -9,9 +9,10 @@
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
-    "build": "rollup -c"
+    "build": "babel -o index.bundle.js index.js"
   },
   "devDependencies": {
+    "babel-cli": "^6.26.0",
     "babel-core": "^6.26.0",
     "babel-plugin-transform-class-properties": "^6.24.1",
     "babel-plugin-transform-object-rest-spread": "^6.26.0",
