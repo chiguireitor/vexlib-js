@@ -110,6 +110,7 @@ export default class VexLib extends EventEmitter {
 
     this.socket.on('vex', vexApiHandler)
     this.socket.on('vexblock', vexApiHandler)
+    this.socket.on('db', vexApiHandler)
   }
 
   _socket_connect_ = () => {
@@ -140,8 +141,30 @@ export default class VexLib extends EventEmitter {
     this.emit('updates', updates)
   }
 
-  vex(method, params, cb) {
+  _api_(entry, method, params, cb) {
     this.cbList[this.lastVexSeq] = cb
+
+    let doCall = ((seq) => () => {
+      this.socket.emit(entry, {
+        method,
+        params,
+        seq
+      })
+    })(this.lastVexSeq)
+
+    this.lastVexSeq++
+
+    if (this._is_connected_) {
+      doCall()
+    } else {
+      console.log(`Postergating ${entry} call because socket is not connected`)
+      this._call_list_.push(doCall)
+    }
+  }
+
+  vex(method, params, cb) {
+    _api_('vex', method, params, cb)
+    /*this.cbList[this.lastVexSeq] = cb
 
     let doCall = ((seq) => () => {
       this.socket.emit('vex', {
@@ -158,11 +181,12 @@ export default class VexLib extends EventEmitter {
     } else {
       console.log('Postergating VEX call because socket is not connected')
       this._call_list_.push(doCall)
-    }
+    }*/
   }
 
   vexblock(method, params, cb) {
-    this.cbList[this.lastVexSeq] = cb
+    _api_('vexblock', method, params, cb)
+    /*this.cbList[this.lastVexSeq] = cb
 
     let doCall = ((seq) => () => {
       this.socket.emit('vexblock', {
@@ -179,7 +203,11 @@ export default class VexLib extends EventEmitter {
     } else {
       console.log('Postergating VEXBLOCK call because socket is not connected')
       this._call_list_.push(doCall)
-    }
+    }*/
+  }
+
+  db(method, params, cb) {
+    _api_('db', method, params, cb)
   }
 
   getBalances(cb) {

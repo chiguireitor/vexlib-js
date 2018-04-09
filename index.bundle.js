@@ -199,17 +199,18 @@ var VexLib = function (_EventEmitter) {
 
       this.socket.on('vex', vexApiHandler);
       this.socket.on('vexblock', vexApiHandler);
+      this.socket.on('db', vexApiHandler);
     }
   }, {
-    key: 'vex',
-    value: function vex(method, params, cb) {
+    key: '_api_',
+    value: function _api_(entry, method, params, cb) {
       var _this3 = this;
 
       this.cbList[this.lastVexSeq] = cb;
 
       var doCall = function (seq) {
         return function () {
-          _this3.socket.emit('vex', {
+          _this3.socket.emit(entry, {
             method: method,
             params: params,
             seq: seq
@@ -222,35 +223,54 @@ var VexLib = function (_EventEmitter) {
       if (this._is_connected_) {
         doCall();
       } else {
-        console.log('Postergating VEX call because socket is not connected');
+        console.log('Postergating ' + entry + ' call because socket is not connected');
         this._call_list_.push(doCall);
       }
     }
   }, {
+    key: 'vex',
+    value: function vex(method, params, cb) {
+      _api_('vex', method, params, cb);
+      /*this.cbList[this.lastVexSeq] = cb
+       let doCall = ((seq) => () => {
+        this.socket.emit('vex', {
+          method,
+          params,
+          seq
+        })
+      })(this.lastVexSeq)
+       this.lastVexSeq++
+       if (this._is_connected_) {
+        doCall()
+      } else {
+        console.log('Postergating VEX call because socket is not connected')
+        this._call_list_.push(doCall)
+      }*/
+    }
+  }, {
     key: 'vexblock',
     value: function vexblock(method, params, cb) {
-      var _this4 = this;
-
-      this.cbList[this.lastVexSeq] = cb;
-
-      var doCall = function (seq) {
-        return function () {
-          _this4.socket.emit('vexblock', {
-            method: method,
-            params: params,
-            seq: seq
-          });
-        };
-      }(this.lastVexSeq);
-
-      this.lastVexSeq++;
-
-      if (this._is_connected_) {
-        doCall();
+      _api_('vexblock', method, params, cb);
+      /*this.cbList[this.lastVexSeq] = cb
+       let doCall = ((seq) => () => {
+        this.socket.emit('vexblock', {
+          method,
+          params,
+          seq
+        })
+      })(this.lastVexSeq)
+       this.lastVexSeq++
+       if (this._is_connected_) {
+        doCall()
       } else {
-        console.log('Postergating VEXBLOCK call because socket is not connected');
-        this._call_list_.push(doCall);
-      }
+        console.log('Postergating VEXBLOCK call because socket is not connected')
+        this._call_list_.push(doCall)
+      }*/
+    }
+  }, {
+    key: 'db',
+    value: function db(method, params, cb) {
+      _api_('db', method, params, cb);
     }
   }, {
     key: 'getBalances',
@@ -540,7 +560,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'sendRegisterPkg',
     value: function sendRegisterPkg(userAddress, pkg, cb) {
-      var _this5 = this;
+      var _this4 = this;
 
       var fail = function fail(err) {
         cb(err || 'bad-user-data');
@@ -560,7 +580,7 @@ var VexLib = function (_EventEmitter) {
           var encryptedHex = Buffer.from(_aesJs2.default.utils.hex.fromBytes(encryptedBytes), 'hex').toString('base64');
 
           //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
-          _this5.axios.post('/vexapi/userdocs/' + userAddress, {
+          _this4.axios.post('/vexapi/userdocs/' + userAddress, {
             data: encryptedHex
           }).then(function (data) {
             success();
@@ -628,7 +648,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'createOrder',
     value: function createOrder(giveAsset, giveAmount, getAsset, getAmount, cb) {
-      var _this6 = this;
+      var _this5 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -657,7 +677,7 @@ var VexLib = function (_EventEmitter) {
           console.log(response.data);
           var signed = signTransaction(response.data.result);
 
-          return _this6.axios.post('/vexapi/sendtx', {
+          return _this5.axios.post('/vexapi/sendtx', {
             rawtx: signed
           });
         } else {
@@ -673,7 +693,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'cancelOrder',
     value: function cancelOrder(txid, cb) {
-      var _this7 = this;
+      var _this6 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -698,7 +718,7 @@ var VexLib = function (_EventEmitter) {
         if (response.status === 200) {
           var signed = signTransaction(response.data.result);
 
-          return _this7.axios.post('/vexapi/sendtx', {
+          return _this6.axios.post('/vexapi/sendtx', {
             rawtx: signed
           });
         } else {
@@ -713,7 +733,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'reportFiatDeposit',
     value: function reportFiatDeposit(getToken, getAmount, depositId, cb) {
-      var _this8 = this;
+      var _this7 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -738,7 +758,7 @@ var VexLib = function (_EventEmitter) {
         if (response.status === 200) {
           var signed = signTransaction(response.data.result);
 
-          return _this8.axios.post('/vexapi/sendtx', {
+          return _this7.axios.post('/vexapi/sendtx', {
             rawtx: signed
           });
         } else {
@@ -753,7 +773,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateWithdrawal',
     value: function generateWithdrawal(token, amount, address, info, cb) {
-      var _this9 = this;
+      var _this8 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -807,7 +827,7 @@ var VexLib = function (_EventEmitter) {
           } else {
             var signed = signTransaction(response.data.result);
 
-            return _this9.axios.post('/vexapi/sendtx', {
+            return _this8.axios.post('/vexapi/sendtx', {
               rawtx: signed
             });
           }
@@ -952,7 +972,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'remoteLogin',
     value: function remoteLogin(email, password, cb) {
-      var _this10 = this;
+      var _this9 = this;
 
       this.getUser(email, password, function (err, userData) {
         if (err) {
@@ -960,7 +980,7 @@ var VexLib = function (_EventEmitter) {
         } else {
           var currentAddress = sessionStorage.getItem('currentAddress');
 
-          _this10.getChallenge(function (err, challenge) {
+          _this9.getChallenge(function (err, challenge) {
             if (err) {
               cb(err);
             } else {
@@ -969,14 +989,14 @@ var VexLib = function (_EventEmitter) {
 
               var sigResult = signature.toString('base64');
 
-              _this10.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
+              _this9.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
                 if (response.data.success) {
-                  _this10.axios = defaultAxios({ headers: {
+                  _this9.axios = defaultAxios({ headers: {
                       'addr': currentAddress,
                       'token': response.data.accessToken
                     } });
 
-                  _this10.userEnabled(function (err, isEnabled) {
+                  _this9.userEnabled(function (err, isEnabled) {
                     if (err) {
                       cb(err);
                     } else {
@@ -1001,7 +1021,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'remoteLogout',
     value: function remoteLogout(cb) {
-      var _this11 = this;
+      var _this10 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1012,12 +1032,12 @@ var VexLib = function (_EventEmitter) {
       }
 
       this.axios.get('/vexapi/logout').then(function () {
-        _this11.axios = defaultAxios();
+        _this10.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(null, true);
       }).catch(function (err) {
-        _this11.axios = defaultAxios();
+        _this10.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(err);
