@@ -173,8 +173,16 @@ export default class VexLib extends EventEmitter {
     this._api_('db', method, params, cb)
   }
 
-  signTransaction(rawtx) {
-    return signTransaction(rawtx)
+  signAndBroadcastTransaction(rawtx, cb) {
+    let signed = signTransaction(rawtx)
+
+    this.axios.post('/vexapi/sendtx', {
+      rawtx: signed
+    }).then((response) => {
+      cb(null, response.data.result)
+    }).catch(err => {
+      cb(err)
+    })
   }
 
   getBalances(cb) {
