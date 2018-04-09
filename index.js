@@ -163,7 +163,7 @@ export default class VexLib extends EventEmitter {
   }
 
   vex(method, params, cb) {
-    _api_('vex', method, params, cb)
+    this._api_('vex', method, params, cb)
     /*this.cbList[this.lastVexSeq] = cb
 
     let doCall = ((seq) => () => {
@@ -185,7 +185,7 @@ export default class VexLib extends EventEmitter {
   }
 
   vexblock(method, params, cb) {
-    _api_('vexblock', method, params, cb)
+    this._api_('vexblock', method, params, cb)
     /*this.cbList[this.lastVexSeq] = cb
 
     let doCall = ((seq) => () => {
@@ -207,7 +207,7 @@ export default class VexLib extends EventEmitter {
   }
 
   db(method, params, cb) {
-    _api_('db', method, params, cb)
+    this._api_('db', method, params, cb)
   }
 
   getBalances(cb) {
