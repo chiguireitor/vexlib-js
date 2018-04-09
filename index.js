@@ -173,6 +173,10 @@ export default class VexLib extends EventEmitter {
     this._api_('db', method, params, cb)
   }
 
+  index(method, params, cb) {
+    this._api_('index', method, params, cb)
+  }
+
   signAndBroadcastTransaction(rawtx, cb) {
     let signed = signTransaction(rawtx)
 

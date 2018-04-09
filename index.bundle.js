@@ -242,6 +242,11 @@ var VexLib = function (_EventEmitter) {
       this._api_('db', method, params, cb);
     }
   }, {
+    key: 'index',
+    value: function index(method, params, cb) {
+      this._api_('index', method, params, cb);
+    }
+  }, {
     key: 'signAndBroadcastTransaction',
     value: function signAndBroadcastTransaction(rawtx, cb) {
       var signed = signTransaction(rawtx);
