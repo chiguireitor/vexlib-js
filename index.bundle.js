@@ -78,7 +78,6 @@ function getKeyPairFromSessionStorage() {
 }
 
 function signTransaction(rawHex) {
-  console.log(rawHex);
   var tx = _bitcoinjsLib2.default.Transaction.fromHex(rawHex);
   var keyPair = getKeyPairFromSessionStorage();
 
@@ -231,46 +230,29 @@ var VexLib = function (_EventEmitter) {
     key: 'vex',
     value: function vex(method, params, cb) {
       this._api_('vex', method, params, cb);
-      /*this.cbList[this.lastVexSeq] = cb
-       let doCall = ((seq) => () => {
-        this.socket.emit('vex', {
-          method,
-          params,
-          seq
-        })
-      })(this.lastVexSeq)
-       this.lastVexSeq++
-       if (this._is_connected_) {
-        doCall()
-      } else {
-        console.log('Postergating VEX call because socket is not connected')
-        this._call_list_.push(doCall)
-      }*/
     }
   }, {
     key: 'vexblock',
     value: function vexblock(method, params, cb) {
       this._api_('vexblock', method, params, cb);
-      /*this.cbList[this.lastVexSeq] = cb
-       let doCall = ((seq) => () => {
-        this.socket.emit('vexblock', {
-          method,
-          params,
-          seq
-        })
-      })(this.lastVexSeq)
-       this.lastVexSeq++
-       if (this._is_connected_) {
-        doCall()
-      } else {
-        console.log('Postergating VEXBLOCK call because socket is not connected')
-        this._call_list_.push(doCall)
-      }*/
     }
   }, {
     key: 'db',
     value: function db(method, params, cb) {
       this._api_('db', method, params, cb);
+    }
+  }, {
+    key: 'signAndBroadcastTransaction',
+    value: function signAndBroadcastTransaction(rawtx, cb) {
+      var signed = signTransaction(rawtx);
+
+      this.axios.post('/vexapi/sendtx', {
+        rawtx: signed
+      }).then(function (response) {
+        cb(null, response.data.result);
+      }).catch(function (err) {
+        cb(err);
+      });
     }
   }, {
     key: 'getBalances',
