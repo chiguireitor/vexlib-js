@@ -31,7 +31,6 @@ function getKeyPairFromSessionStorage() {
 }
 
 function signTransaction(rawHex) {
-  console.log(rawHex)
   let tx = bitcoin.Transaction.fromHex(rawHex)
   let keyPair = getKeyPairFromSessionStorage()
 
@@ -164,50 +163,18 @@ export default class VexLib extends EventEmitter {
 
   vex(method, params, cb) {
     this._api_('vex', method, params, cb)
-    /*this.cbList[this.lastVexSeq] = cb
-
-    let doCall = ((seq) => () => {
-      this.socket.emit('vex', {
-        method,
-        params,
-        seq
-      })
-    })(this.lastVexSeq)
-
-    this.lastVexSeq++
-
-    if (this._is_connected_) {
-      doCall()
-    } else {
-      console.log('Postergating VEX call because socket is not connected')
-      this._call_list_.push(doCall)
-    }*/
   }
 
   vexblock(method, params, cb) {
     this._api_('vexblock', method, params, cb)
-    /*this.cbList[this.lastVexSeq] = cb
-
-    let doCall = ((seq) => () => {
-      this.socket.emit('vexblock', {
-        method,
-        params,
-        seq
-      })
-    })(this.lastVexSeq)
-
-    this.lastVexSeq++
-
-    if (this._is_connected_) {
-      doCall()
-    } else {
-      console.log('Postergating VEXBLOCK call because socket is not connected')
-      this._call_list_.push(doCall)
-    }*/
   }
 
   db(method, params, cb) {
     this._api_('db', method, params, cb)
+  }
+
+  signTransaction(rawtx) {
+    return signTransaction(rawtx)
   }
 
   getBalances(cb) {
