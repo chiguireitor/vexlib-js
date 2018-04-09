@@ -230,7 +230,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'vex',
     value: function vex(method, params, cb) {
-      _api_('vex', method, params, cb);
+      this._api_('vex', method, params, cb);
       /*this.cbList[this.lastVexSeq] = cb
        let doCall = ((seq) => () => {
         this.socket.emit('vex', {
@@ -250,7 +250,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'vexblock',
     value: function vexblock(method, params, cb) {
-      _api_('vexblock', method, params, cb);
+      this._api_('vexblock', method, params, cb);
       /*this.cbList[this.lastVexSeq] = cb
        let doCall = ((seq) => () => {
         this.socket.emit('vexblock', {
@@ -270,7 +270,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'db',
     value: function db(method, params, cb) {
-      _api_('db', method, params, cb);
+      this._api_('db', method, params, cb);
     }
   }, {
     key: 'getBalances',
