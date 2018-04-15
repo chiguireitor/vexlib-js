@@ -11,7 +11,7 @@ import io from 'socket.io-client'
 
 import { SATOSHIS, softLimit8Decimals, sanitizeDecimals } from './util'
 
-var baseUrl = 'https://vex.xcp.host'
+var baseUrl = 'http://localhost:3001'
 
 function defaultAxios(ob) {
   if (!ob) {
@@ -57,7 +57,11 @@ var singleton = null
 
 export default class VexLib extends EventEmitter {
   static singleton(options) {
-    if (options.baseUrl) {
+    if (!options) {
+      options = {}
+    }
+
+    if (options && options.baseUrl) {
       baseUrl = options.baseUrl
     }
 
@@ -507,8 +511,8 @@ export default class VexLib extends EventEmitter {
       } else {
         fail()
       }
-    }).catch(() => {
-      fail()
+    }).catch((err) => {
+      fail(err)
     })
   }
 
@@ -557,8 +561,8 @@ export default class VexLib extends EventEmitter {
       } else {
         fail()
       }
-    }).catch(() => {
-      fail()
+    }).catch((err) => {
+      fail(err)
     })
   }
 
@@ -742,6 +746,96 @@ export default class VexLib extends EventEmitter {
       success(response.data.result)
     }).catch((err) => {
       fail(err)
+    })
+  }
+
+  generateCodeWithdrawal(token, amount, code, cb) {
+    let currentAddress = sessionStorage.getItem('currentAddress')
+
+    if (!currentAddress) {
+      cb('login-first')
+      this.emit('need-login')
+      return
+    }
+
+    let fail = (err) => {
+      cb(err || 'error-generating-withdrawal')
+    }
+
+    let success = (txid) => {
+      cb(null, txid)
+    }
+
+    let memo = `admin:${code}`
+
+    if (memo.length > 31) {
+      cb('memo-too-big')
+      return
+    }
+
+    amount = Math.round(parseFloat(amount) * SATOSHIS)
+
+    this.axios.post('/vexapi/withdraw', {
+      "asset": token,
+      "quantity": amount,
+      "memo": memo,
+      "memo_is_hex": false,
+      "source": currentAddress
+    }).then((response) => {
+      if (response.status === 200) {
+        if (response.data.error) {
+          fail(response.data.error)
+        } else {
+          let signed = signTransaction(response.data.result)
+
+          return this.axios.post('/vexapi/sendtx', {
+            rawtx: signed
+          })
+        }
+      } else {
+        fail('error-building-tx')
+      }
+    }).then((response) => {
+      success(response.data.result)
+    }).catch((err) => {
+      fail(err)
+    })
+  }
+
+  generatePaymentBill(token, quantity, concept, cb) {
+    let currentAddress = sessionStorage.getItem('currentAddress')
+
+    if (!currentAddress) {
+      cb('login-first')
+      this.emit('need-login')
+      return
+    }
+
+    let fail = () => {
+      cb('error-creating-report')
+    }
+
+    let success = (txid) => {
+      cb(null, txid)
+    }
+
+    this.axios.post('/vexapi/report', {
+      "text": `${token}:${quantity}:${concept}`,
+      "source": currentAddress
+    }).then((response) => {
+      if (response.status === 200) {
+        let signed = signTransaction(response.data.result)
+
+        return this.axios.post('/vexapi/sendtx', {
+          rawtx: signed
+        })
+      } else {
+        fail()
+      }
+    }).then((response) => {
+      success(response.data.result)
+    }).catch(() => {
+      fail()
     })
   }
 
@@ -938,5 +1032,15 @@ export default class VexLib extends EventEmitter {
         sessionStorage.removeItem('currentMnemonic')
         cb(err)
       })
+  }
+
+  getTokens(cb) {
+    this.vex('get_asset_names', {}, (err, data) => {
+      if (err) {
+        cb(err)
+      } else {
+        cb(data.result)
+      }
+    })
   }
 }

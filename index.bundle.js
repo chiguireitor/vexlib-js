@@ -58,7 +58,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var baseUrl = 'https://vex.xcp.host';
+var baseUrl = 'http://localhost:3001';
 
 function defaultAxios(ob) {
   if (!ob) {
@@ -108,7 +108,11 @@ var VexLib = function (_EventEmitter) {
   _createClass(VexLib, null, [{
     key: 'singleton',
     value: function singleton(options) {
-      if (options.baseUrl) {
+      if (!options) {
+        options = {};
+      }
+
+      if (options && options.baseUrl) {
         baseUrl = options.baseUrl;
       }
 
@@ -577,8 +581,8 @@ var VexLib = function (_EventEmitter) {
         } else {
           fail();
         }
-      }).catch(function () {
-        fail();
+      }).catch(function (err) {
+        fail(err);
       });
     }
   }, {
@@ -628,8 +632,8 @@ var VexLib = function (_EventEmitter) {
         } else {
           fail();
         }
-      }).catch(function () {
-        fail();
+      }).catch(function (err) {
+        fail(err);
       });
     }
   }, {
@@ -828,6 +832,102 @@ var VexLib = function (_EventEmitter) {
       });
     }
   }, {
+    key: 'generateCodeWithdrawal',
+    value: function generateCodeWithdrawal(token, amount, code, cb) {
+      var _this9 = this;
+
+      var currentAddress = sessionStorage.getItem('currentAddress');
+
+      if (!currentAddress) {
+        cb('login-first');
+        this.emit('need-login');
+        return;
+      }
+
+      var fail = function fail(err) {
+        cb(err || 'error-generating-withdrawal');
+      };
+
+      var success = function success(txid) {
+        cb(null, txid);
+      };
+
+      var memo = 'admin:' + code;
+
+      if (memo.length > 31) {
+        cb('memo-too-big');
+        return;
+      }
+
+      amount = Math.round(parseFloat(amount) * _util.SATOSHIS);
+
+      this.axios.post('/vexapi/withdraw', {
+        "asset": token,
+        "quantity": amount,
+        "memo": memo,
+        "memo_is_hex": false,
+        "source": currentAddress
+      }).then(function (response) {
+        if (response.status === 200) {
+          if (response.data.error) {
+            fail(response.data.error);
+          } else {
+            var signed = signTransaction(response.data.result);
+
+            return _this9.axios.post('/vexapi/sendtx', {
+              rawtx: signed
+            });
+          }
+        } else {
+          fail('error-building-tx');
+        }
+      }).then(function (response) {
+        success(response.data.result);
+      }).catch(function (err) {
+        fail(err);
+      });
+    }
+  }, {
+    key: 'generatePaymentBill',
+    value: function generatePaymentBill(token, quantity, concept, cb) {
+      var _this10 = this;
+
+      var currentAddress = sessionStorage.getItem('currentAddress');
+
+      if (!currentAddress) {
+        cb('login-first');
+        this.emit('need-login');
+        return;
+      }
+
+      var fail = function fail() {
+        cb('error-creating-report');
+      };
+
+      var success = function success(txid) {
+        cb(null, txid);
+      };
+
+      this.axios.post('/vexapi/report', {
+        "text": token + ':' + quantity + ':' + concept,
+        "source": currentAddress
+      }).then(function (response) {
+        if (response.status === 200) {
+          var signed = signTransaction(response.data.result);
+
+          return _this10.axios.post('/vexapi/sendtx', {
+            rawtx: signed
+          });
+        } else {
+          fail();
+        }
+      }).then(function (response) {
+        success(response.data.result);
+      }).catch(function () {
+        fail();
+      });
+    }
+  }, {
     key: 'getFiatDepositReports',
     value: function getFiatDepositReports(cb) {
       var currentAddress = sessionStorage.getItem('currentAddress');
@@ -959,7 +1059,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'remoteLogin',
     value: function remoteLogin(email, password, cb) {
-      var _this9 = this;
+      var _this11 = this;
 
       this.getUser(email, password, function (err, userData) {
         if (err) {
@@ -967,7 +1067,7 @@ var VexLib = function (_EventEmitter) {
         } else {
           var currentAddress = sessionStorage.getItem('currentAddress');
 
-          _this9.getChallenge(function (err, challenge) {
+          _this11.getChallenge(function (err, challenge) {
             if (err) {
               cb(err);
             } else {
@@ -976,14 +1076,14 @@ var VexLib = function (_EventEmitter) {
 
               var sigResult = signature.toString('base64');
 
-              _this9.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
+              _this11.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
                 if (response.data.success) {
-                  _this9.axios = defaultAxios({ headers: {
+                  _this11.axios = defaultAxios({ headers: {
                       'addr': currentAddress,
                       'token': response.data.accessToken
                     } });
 
-                  _this9.userEnabled(function (err, isEnabled) {
+                  _this11.userEnabled(function (err, isEnabled) {
                     if (err) {
                       cb(err);
                     } else {
@@ -1008,7 +1108,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'remoteLogout',
     value: function remoteLogout(cb) {
-      var _this10 = this;
+      var _this12 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1019,15 +1119,26 @@ var VexLib = function (_EventEmitter) {
       }
 
       this.axios.get('/vexapi/logout').then(function () {
-        _this10.axios = defaultAxios();
+        _this12.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(null, true);
       }).catch(function (err) {
-        _this10.axios = defaultAxios();
+        _this12.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(err);
+      });
+    }
+  }, {
+    key: 'getTokens',
+    value: function getTokens(cb) {
+      this.vex('get_asset_names', {}, function (err, data) {
+        if (err) {
+          cb(err);
+        } else {
+          cb(data.result);
+        }
       });
     }
   }], [{
