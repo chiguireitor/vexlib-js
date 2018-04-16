@@ -1039,7 +1039,7 @@ export default class VexLib extends EventEmitter {
       if (err) {
         cb(err)
       } else {
-        cb(data.result)
+        cb(null, data.result)
       }
     })
   }

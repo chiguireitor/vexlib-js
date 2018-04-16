@@ -1137,7 +1137,7 @@ var VexLib = function (_EventEmitter) {
         if (err) {
           cb(err);
         } else {
-          cb(data.result);
+          cb(null, data.result);
         }
       });
     }
