@@ -58,6 +58,36 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
+var localStorage = localStorage || null;
+if (localStorage === null) {
+  var storage = {};
+
+  localStorage = {
+    getItem: function getItem(name) {
+      return storage[name] || null;
+    },
+
+    setItem: function setItem(name, value) {
+      storage[name] = value.toString();
+    }
+  };
+}
+
+var sessionStorage = sessionStorage || null;
+if (sessionStorage === null) {
+  var _storage = {};
+
+  sessionStorage = {
+    getItem: function getItem(name) {
+      return _storage[name] || null;
+    },
+
+    setItem: function setItem(name, value) {
+      _storage[name] = value.toString();
+    }
+  };
+}
+
 var baseUrl = 'http://localhost:3001';
 
 function defaultAxios(ob) {
@@ -151,7 +181,7 @@ var VexLib = function (_EventEmitter) {
 
     _this._socket_newblock_ = function (hash) {
       _this.emit('new block', hash);
-      _this.vex('');
+      //this.vex('')
     };
 
     _this._socket_updates_ = function (updates) {
@@ -1063,6 +1093,97 @@ var VexLib = function (_EventEmitter) {
       });
     }
   }, {
+    key: 'generateTokenDepositAddress',
+    value: function generateTokenDepositAddress(token, cb) {
+      var _this12 = this;
+
+      var currentAddress = sessionStorage.getItem('currentAddress');
+
+      if (!currentAddress) {
+        cb('login-first');
+        this.emit('need-login');
+
+        return;
+      }
+
+      var fail = function fail(err) {
+        if (err.response && err.response.status === 401) {
+          _this12.emit('need-login');
+        }
+
+        cb(err || 'error-getting-deposits');
+      };
+
+      var success = function success(status) {
+        cb(null, status);
+      };
+
+      this.vex('create_broadcast', {
+        source: currentAddress,
+        text: 'GENADDR:' + token,
+        fee_fraction: 0,
+        timestamp: Math.floor(Date.now() / 1000),
+        value: 0
+      }, function (err, data) {
+        if (err) {
+          fail(err);
+        } else {
+          var signedTransaction = signTransaction(data.result);
+          _this12.axios.post('/vexapi/sendtx', {
+            rawtx: signedTransaction
+          }).then(function (response) {
+            success(response.data.result);
+          }).catch(function (err) {
+            fail(err);
+          });
+        }
+      });
+    }
+  }, {
+    key: 'getTokenDepositAddress',
+    value: function getTokenDepositAddress(token, cb) {
+      var _this13 = this;
+
+      var currentAddress = sessionStorage.getItem('currentAddress');
+
+      if (!currentAddress) {
+        cb('login-first');
+        this.emit('need-login');
+
+        return;
+      }
+
+      var fail = function fail(err) {
+        if (err.response && err.response.status === 401) {
+          _this13.emit('need-login');
+        }
+
+        cb(err || 'error-getting-deposits');
+      };
+
+      var success = function success(data) {
+        cb(null, data);
+      };
+
+      this.vex('get_broadcasts', {
+        filters: [{
+          field: 'text',
+          op: 'LIKE',
+          value: 'A:' + currentAddress + ':' + token + ':%'
+        }, {
+          field: 'source',
+          op: '==',
+          value: config.exchangeAddress
+        }]
+      }, function (err, data) {
+        if (err) {
+          fail(err);
+        } else {
+          success(data);
+        }
+      });
+    }
+  }, {
     key: 'getChallenge',
     value: function getChallenge(cb) {
       var currentAddress = sessionStorage.getItem('currentAddress');
@@ -1095,7 +1216,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'localLogin',
     value: function localLogin(cb) {
-      var _this12 = this;
+      var _this14 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1108,14 +1229,14 @@ var VexLib = function (_EventEmitter) {
 
           var sigResult = signature.toString('base64');
 
-          _this12.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
+          _this14.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
             if (response.data.success) {
-              _this12.axios = defaultAxios({ headers: {
+              _this14.axios = defaultAxios({ headers: {
                   'addr': currentAddress,
                   'token': response.data.accessToken
                 } });
 
-              _this12.userEnabled(function (err, isEnabled) {
+              _this14.userEnabled(function (err, isEnabled) {
                 if (err) {
                   cb(err);
                 } else {
@@ -1138,20 +1259,20 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'remoteLogin',
     value: function remoteLogin(email, password, cb) {
-      var _this13 = this;
+      var _this15 = this;
 
       this.getUser(email, password, function (err, userData) {
         if (err) {
           cb(err);
         } else {
-          _this13.localLogin(cb);
+          _this15.localLogin(cb);
         }
       });
     }
   }, {
     key: 'remoteLogout',
     value: function remoteLogout(cb) {
-      var _this14 = this;
+      var _this16 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1162,12 +1283,12 @@ var VexLib = function (_EventEmitter) {
       }
 
       this.axios.get('/vexapi/logout').then(function () {
-        _this14.axios = defaultAxios();
+        _this16.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(null, true);
       }).catch(function (err) {
-        _this14.axios = defaultAxios();
+        _this16.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(err);
