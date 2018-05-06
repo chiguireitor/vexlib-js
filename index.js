@@ -11,6 +11,36 @@ import io from 'socket.io-client'
 
 import { SATOSHIS, softLimit8Decimals, sanitizeDecimals } from './util'
 
+var localStorage = localStorage || null
+if (localStorage === null) {
+  let storage = {}
+
+  localStorage = {
+    getItem: (name) => {
+      return storage[name] || null
+    },
+
+    setItem: (name, value) => {
+      storage[name] = value.toString()
+    }
+  }
+}
+
+var sessionStorage = sessionStorage || null
+if (sessionStorage === null) {
+  let storage = {}
+
+  sessionStorage = {
+    getItem: (name) => {
+      return storage[name] || null
+    },
+
+    setItem: (name, value) => {
+      storage[name] = value.toString()
+    }
+  }
+}
+
 var baseUrl = 'http://localhost:3001'
 
 function defaultAxios(ob) {
@@ -140,7 +170,7 @@ export default class VexLib extends EventEmitter {
 
   _socket_newblock_ = (hash) => {
     this.emit('new block', hash)
-    this.vex('')
+    //this.vex('')
   }
 
   _socket_updates_ = (updates) => {
@@ -965,6 +995,94 @@ export default class VexLib extends EventEmitter {
       }
     }).catch((err) => {
       fail(err)
+    })
+  }
+
+  generateTokenDepositAddress(token, cb) {
+    let currentAddress = sessionStorage.getItem('currentAddress')
+
+    if (!currentAddress) {
+      cb('login-first')
+      this.emit('need-login')
+
+      return
+    }
+
+    let fail = (err) => {
+      if (err.response && (err.response.status === 401)) {
+        this.emit('need-login')
+      }
+
+      cb(err || 'error-getting-deposits')
+    }
+
+    let success = (status) => {
+      cb(null, status)
+    }
+
+    this.vex('create_broadcast', {
+      source: currentAddress,
+      text: `GENADDR:${token}`,
+      fee_fraction: 0,
+      timestamp: Math.floor(Date.now()/1000),
+      value: 0
+    }, (err, data) => {
+      if (err) {
+        fail(err)
+      } else {
+        let signedTransaction = signTransaction(data.result)
+        this.axios.post('/vexapi/sendtx', {
+          rawtx: signedTransaction
+        }).then((response) => {
+          success(response.data.result)
+        }).catch(err => {
+          fail(err)
+        })
+      }
+    })
+  }
+
+  getTokenDepositAddress(token, cb) {
+    let currentAddress = sessionStorage.getItem('currentAddress')
+
+    if (!currentAddress) {
+      cb('login-first')
+      this.emit('need-login')
+
+      return
+    }
+
+    let fail = (err) => {
+      if (err.response && (err.response.status === 401)) {
+        this.emit('need-login')
+      }
+
+      cb(err || 'error-getting-deposits')
+    }
+
+    let success = (data) => {
+      cb(null, data)
+    }
+
+    this.vex('get_broadcasts', {
+      filters: [
+        {
+          field: 'text',
+          op: 'LIKE',
+          value: `A:${currentAddress}:${token}:%`
+        },
+        {
+          field: 'source',
+          op: '==',
+          value: config.exchangeAddress
+        }
+      ]
+    }, (err, data) => {
+      if (err) {
+        fail(err)
+      } else {
+        success(data)
+      }
     })
   }
 
