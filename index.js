@@ -101,10 +101,12 @@ export default class VexLib extends EventEmitter {
       if (typeof(data.seq) !== 'undefined' && data.seq in this.cbList) {
         let cb = this.cbList[data.seq]
 
-        if (data.error) {
-          cb(data.error)
-        } else {
-          cb(null, data.data)
+        if (cb) {
+          if (data.error) {
+            cb(data.error)
+          } else {
+            cb(null, data.data)
+          }
         }
       } else {
         console.log('Message not expected', data.seq)
@@ -138,6 +140,7 @@ export default class VexLib extends EventEmitter {
 
   _socket_newblock_ = (hash) => {
     this.emit('new block', hash)
+    this.vex('')
   }
 
   _socket_updates_ = (updates) => {
@@ -285,6 +288,8 @@ export default class VexLib extends EventEmitter {
 
         let res = data.result.map(x => {
           return {
+            rawGive: (isBid?x.give_remaining:x.get_remaining),
+            rawGet: (isBid?x.get_remaining:x.give_remaining),
             give: (isBid?x.give_remaining:x.get_remaining) / SATOSHIS,
             get: (isBid?x.get_remaining:x.give_remaining) / SATOSHIS,
             price: isBid?(x.get_quantity / x.give_quantity):(x.give_quantity / x.get_quantity)
@@ -575,8 +580,12 @@ export default class VexLib extends EventEmitter {
       return
     }
 
-    let fail = (msg) => {
-      cb(msg || 'error-creating-order')
+    let fail = (err) => {
+      if (err.response && (err.response.status === 401)) {
+        this.emit('need-login')
+      }
+
+      cb(err || 'error-creating-order')
     }
 
     let success = (txid) => {
@@ -603,8 +612,7 @@ export default class VexLib extends EventEmitter {
     }).then((response) => {
       success(response.data.result)
     }).catch((err) => {
-      console.log(err)
-      fail('error-creating-order-check-logs')
+      fail(err)
     })
   }
 
@@ -617,7 +625,12 @@ export default class VexLib extends EventEmitter {
       return
     }
 
-    let fail = () => {
+    let fail = (err) => {
+
+      if (err.response && (err.response.status === 401)) {
+        this.emit('need-login')
+      }
+
       cb('error-creating-cancel')
     }
 
@@ -640,8 +653,8 @@ export default class VexLib extends EventEmitter {
       }
     }).then((response) => {
       success(response.data.result)
-    }).catch(() => {
-      fail()
+    }).catch((err) => {
+      fail(err)
     })
   }
 
@@ -654,7 +667,12 @@ export default class VexLib extends EventEmitter {
       return
     }
 
-    let fail = () => {
+    let fail = (err) => {
+
+      if (err.response && (err.response.status === 401)) {
+        this.emit('need-login')
+      }
+
       cb('error-creating-report')
     }
 
@@ -677,8 +695,8 @@ export default class VexLib extends EventEmitter {
       }
     }).then((response) => {
       success(response.data.result)
-    }).catch(() => {
-      fail()
+    }).catch((err) => {
+      fail(err)
     })
   }
 
@@ -692,6 +710,10 @@ export default class VexLib extends EventEmitter {
     }
 
     let fail = (err) => {
+      if (err.response && (err.response.status === 401)) {
+        this.emit('need-login')
+      }
+
       cb(err || 'error-generating-withdrawal')
     }
 
@@ -759,6 +781,10 @@ export default class VexLib extends EventEmitter {
     }
 
     let fail = (err) => {
+      if (err.response && (err.response.status === 401)) {
+        this.emit('need-login')
+      }
+
       cb(err || 'error-generating-withdrawal')
     }
 
@@ -811,7 +837,11 @@ export default class VexLib extends EventEmitter {
       return
     }
 
-    let fail = () => {
+    let fail = (err) => {
+      if (err.response && (err.response.status === 401)) {
+        this.emit('need-login')
+      }
+
       cb('error-creating-report')
     }
 
@@ -834,8 +864,8 @@ export default class VexLib extends EventEmitter {
       }
     }).then((response) => {
       success(response.data.result)
-    }).catch(() => {
-      fail()
+    }).catch((err) => {
+      fail(err)
     })
   }
 
@@ -916,6 +946,10 @@ export default class VexLib extends EventEmitter {
     }
 
     let fail = (err) => {
+      if (err.response && (err.response.status === 401)) {
+        this.emit('need-login')
+      }
+
       cb(err || 'error-getting-deposits')
     }
 
@@ -963,49 +997,53 @@ export default class VexLib extends EventEmitter {
     })
   }
 
+  localLogin(cb) {
+    let currentAddress = sessionStorage.getItem('currentAddress')
+
+    this.getChallenge((err, challenge) => {
+      if (err) {
+        cb(err)
+      } else {
+        let keyPair = getKeyPairFromSessionStorage()
+        let signature = bitcoinMessage.sign(challenge, keyPair.d.toBuffer(32), keyPair.compressed)
+
+        let sigResult = signature.toString('base64')
+
+        this.axios.post(`/vexapi/challenge/${currentAddress}`, {signature: sigResult}).then((response) => {
+          if (response.data.success) {
+            this.axios = defaultAxios({headers: {
+              'addr': currentAddress,
+              'token': response.data.accessToken
+            }})
+
+            this.userEnabled((err, isEnabled) => {
+              if (err) {
+                cb(err)
+              } else {
+                if (isEnabled) {
+                  cb(null, response.data)
+                } else {
+                  cb('user-not-enabled')
+                }
+              }
+            })
+          } else {
+            cb('challenge-error')
+          }
+
+        }).catch(err => {
+          cb(err)
+        })
+      }
+    })
+  }
+
   remoteLogin(email, password, cb) {
     this.getUser(email, password, (err, userData) => {
       if (err) {
         cb(err)
       } else {
-        let currentAddress = sessionStorage.getItem('currentAddress')
-
-        this.getChallenge((err, challenge) => {
-          if (err) {
-            cb(err)
-          } else {
-            let keyPair = getKeyPairFromSessionStorage()
-            let signature = bitcoinMessage.sign(challenge, keyPair.d.toBuffer(32), keyPair.compressed)
-
-            let sigResult = signature.toString('base64')
-
-            this.axios.post(`/vexapi/challenge/${currentAddress}`, {signature: sigResult}).then((response) => {
-              if (response.data.success) {
-                this.axios = defaultAxios({headers: {
-                  'addr': currentAddress,
-                  'token': response.data.accessToken
-                }})
-
-                this.userEnabled((err, isEnabled) => {
-                  if (err) {
-                    cb(err)
-                  } else {
-                    if (isEnabled) {
-                      cb(null, response.data)
-                    } else {
-                      cb('user-not-enabled')
-                    }
-                  }
-                })
-              } else {
-                cb('challenge-error')
-              }
-
-            }).catch(err => {
-              cb(err)
-            })
-          }
-        })
+        this.localLogin(cb)
       }
     })
   }

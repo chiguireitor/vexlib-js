@@ -151,6 +151,7 @@ var VexLib = function (_EventEmitter) {
 
     _this._socket_newblock_ = function (hash) {
       _this.emit('new block', hash);
+      _this.vex('');
     };
 
     _this._socket_updates_ = function (updates) {
@@ -190,10 +191,12 @@ var VexLib = function (_EventEmitter) {
         if (typeof data.seq !== 'undefined' && data.seq in _this2.cbList) {
           var cb = _this2.cbList[data.seq];
 
-          if (data.error) {
-            cb(data.error);
-          } else {
-            cb(null, data.data);
+          if (cb) {
+            if (data.error) {
+              cb(data.error);
+            } else {
+              cb(null, data.data);
+            }
           }
         } else {
           console.log('Message not expected', data.seq);
@@ -352,6 +355,8 @@ var VexLib = function (_EventEmitter) {
 
           var res = data.result.map(function (x) {
             return {
+              rawGive: isBid ? x.give_remaining : x.get_remaining,
+              rawGet: isBid ? x.get_remaining : x.give_remaining,
               give: (isBid ? x.give_remaining : x.get_remaining) / _util.SATOSHIS,
               get: (isBid ? x.get_remaining : x.give_remaining) / _util.SATOSHIS,
               price: isBid ? x.get_quantity / x.give_quantity : x.give_quantity / x.get_quantity
@@ -649,8 +654,12 @@ var VexLib = function (_EventEmitter) {
         return;
       }
 
-      var fail = function fail(msg) {
-        cb(msg || 'error-creating-order');
+      var fail = function fail(err) {
+        if (err.response && err.response.status === 401) {
+          _this5.emit('need-login');
+        }
+
+        cb(err || 'error-creating-order');
       };
 
       var success = function success(txid) {
@@ -677,8 +686,7 @@ var VexLib = function (_EventEmitter) {
       }).then(function (response) {
         success(response.data.result);
       }).catch(function (err) {
-        console.log(err);
-        fail('error-creating-order-check-logs');
+        fail(err);
       });
     }
   }, {
@@ -694,7 +702,12 @@ var VexLib = function (_EventEmitter) {
         return;
       }
 
-      var fail = function fail() {
+      var fail = function fail(err) {
+
+        if (err.response && err.response.status === 401) {
+          _this6.emit('need-login');
+        }
+
         cb('error-creating-cancel');
       };
 
@@ -717,8 +730,8 @@ var VexLib = function (_EventEmitter) {
         }
       }).then(function (response) {
         success(response.data.result);
-      }).catch(function () {
-        fail();
+      }).catch(function (err) {
+        fail(err);
       });
     }
   }, {
@@ -734,7 +747,12 @@ var VexLib = function (_EventEmitter) {
         return;
       }
 
-      var fail = function fail() {
+      var fail = function fail(err) {
+
+        if (err.response && err.response.status === 401) {
+          _this7.emit('need-login');
+        }
+
         cb('error-creating-report');
       };
 
@@ -757,8 +775,8 @@ var VexLib = function (_EventEmitter) {
         }
       }).then(function (response) {
         success(response.data.result);
-      }).catch(function () {
-        fail();
+      }).catch(function (err) {
+        fail(err);
       });
     }
   }, {
@@ -775,6 +793,10 @@ var VexLib = function (_EventEmitter) {
       }
 
       var fail = function fail(err) {
+        if (err.response && err.response.status === 401) {
+          _this8.emit('need-login');
+        }
+
         cb(err || 'error-generating-withdrawal');
       };
 
@@ -845,6 +867,10 @@ var VexLib = function (_EventEmitter) {
       }
 
       var fail = function fail(err) {
+        if (err.response && err.response.status === 401) {
+          _this9.emit('need-login');
+        }
+
         cb(err || 'error-generating-withdrawal');
       };
 
@@ -900,7 +926,11 @@ var VexLib = function (_EventEmitter) {
         return;
       }
 
-      var fail = function fail() {
+      var fail = function fail(err) {
+        if (err.response && err.response.status === 401) {
+          _this10.emit('need-login');
+        }
+
         cb('error-creating-report');
       };
 
@@ -923,8 +953,8 @@ var VexLib = function (_EventEmitter) {
         }
       }).then(function (response) {
         success(response.data.result);
-      }).catch(function () {
-        fail();
+      }).catch(function (err) {
+        fail(err);
       });
     }
   }, {
@@ -999,6 +1029,8 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getDeposits',
     value: function getDeposits(cb) {
+      var _this11 = this;
+
       var currentAddress = sessionStorage.getItem('currentAddress');
 
       if (!currentAddress) {
@@ -1009,6 +1041,10 @@ var VexLib = function (_EventEmitter) {
       }
 
       var fail = function fail(err) {
+        if (err.response && err.response.status === 401) {
+          _this11.emit('need-login');
+        }
+
         cb(err || 'error-getting-deposits');
       };
 
@@ -1057,58 +1093,65 @@ var VexLib = function (_EventEmitter) {
       });
     }
   }, {
+    key: 'localLogin',
+    value: function localLogin(cb) {
+      var _this12 = this;
+
+      var currentAddress = sessionStorage.getItem('currentAddress');
+
+      this.getChallenge(function (err, challenge) {
+        if (err) {
+          cb(err);
+        } else {
+          var keyPair = getKeyPairFromSessionStorage();
+          var signature = _bitcoinjsMessage2.default.sign(challenge, keyPair.d.toBuffer(32), keyPair.compressed);
+
+          var sigResult = signature.toString('base64');
+
+          _this12.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
+            if (response.data.success) {
+              _this12.axios = defaultAxios({ headers: {
+                  'addr': currentAddress,
+                  'token': response.data.accessToken
+                } });
+
+              _this12.userEnabled(function (err, isEnabled) {
+                if (err) {
+                  cb(err);
+                } else {
+                  if (isEnabled) {
+                    cb(null, response.data);
+                  } else {
+                    cb('user-not-enabled');
+                  }
+                }
+              });
+            } else {
+              cb('challenge-error');
+            }
+          }).catch(function (err) {
+            cb(err);
+          });
+        }
+      });
+    }
+  }, {
     key: 'remoteLogin',
     value: function remoteLogin(email, password, cb) {
-      var _this11 = this;
+      var _this13 = this;
 
       this.getUser(email, password, function (err, userData) {
         if (err) {
           cb(err);
         } else {
-          var currentAddress = sessionStorage.getItem('currentAddress');
-
-          _this11.getChallenge(function (err, challenge) {
-            if (err) {
-              cb(err);
-            } else {
-              var keyPair = getKeyPairFromSessionStorage();
-              var signature = _bitcoinjsMessage2.default.sign(challenge, keyPair.d.toBuffer(32), keyPair.compressed);
-
-              var sigResult = signature.toString('base64');
-
-              _this11.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
-                if (response.data.success) {
-                  _this11.axios = defaultAxios({ headers: {
-                      'addr': currentAddress,
-                      'token': response.data.accessToken
-                    } });
-
-                  _this11.userEnabled(function (err, isEnabled) {
-                    if (err) {
-                      cb(err);
-                    } else {
-                      if (isEnabled) {
-                        cb(null, response.data);
-                      } else {
-                        cb('user-not-enabled');
-                      }
-                    }
-                  });
-                } else {
-                  cb('challenge-error');
-                }
-              }).catch(function (err) {
-                cb(err);
-              });
-            }
-          });
+          _this13.localLogin(cb);
         }
       });
     }
   }, {
     key: 'remoteLogout',
     value: function remoteLogout(cb) {
-      var _this12 = this;
+      var _this14 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1119,12 +1162,12 @@ var VexLib = function (_EventEmitter) {
       }
 
       this.axios.get('/vexapi/logout').then(function () {
-        _this12.axios = defaultAxios();
+        _this14.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(null, true);
       }).catch(function (err) {
-        _this12.axios = defaultAxios();
+        _this14.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(err);
