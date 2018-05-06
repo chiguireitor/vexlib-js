@@ -1074,7 +1074,7 @@ export default class VexLib extends EventEmitter {
         {
           field: 'source',
           op: '==',
-          value: config.exchangeAddress
+          value: this.exchangeAddress
         }
       ]
     }, (err, data) => {

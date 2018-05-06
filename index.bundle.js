@@ -1173,7 +1173,7 @@ var VexLib = function (_EventEmitter) {
         }, {
           field: 'source',
           op: '==',
-          value: config.exchangeAddress
+          value: this.exchangeAddress
         }]
       }, function (err, data) {
         if (err) {
