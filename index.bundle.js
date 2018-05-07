@@ -191,6 +191,8 @@ var VexLib = function (_EventEmitter) {
     _this.lang = options.lang || 'EN';
     _this.exchangeAddress = options.exchangeAddress || '';
 
+    console.log('VexLib init', _this.lang, _this.exchangeAddress);
+
     _this.axios = defaultAxios();
 
     _this.lastVexSeq = 0;

@@ -108,6 +108,8 @@ export default class VexLib extends EventEmitter {
     this.lang = options.lang || 'EN'
     this.exchangeAddress = options.exchangeAddress || ''
 
+    console.log('VexLib init', this.lang, this.exchangeAddress)
+
     this.axios = defaultAxios()
 
     this.lastVexSeq = 0
