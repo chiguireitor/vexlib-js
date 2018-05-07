@@ -58,35 +58,35 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var localStorage = localStorage || null;
+/*var localStorage = localStorage || null
 if (localStorage === null) {
-  var storage = {};
+  let storage = {}
 
   localStorage = {
-    getItem: function getItem(name) {
-      return storage[name] || null;
+    getItem: (name) => {
+      return storage[name] || null
     },
 
-    setItem: function setItem(name, value) {
-      storage[name] = value.toString();
+    setItem: (name, value) => {
+      storage[name] = value.toString()
     }
-  };
+  }
 }
 
-var sessionStorage = sessionStorage || null;
+var sessionStorage = sessionStorage || null
 if (sessionStorage === null) {
-  var _storage = {};
+  let storage = {}
 
   sessionStorage = {
-    getItem: function getItem(name) {
-      return _storage[name] || null;
+    getItem: (name) => {
+      return storage[name] || null
     },
 
-    setItem: function setItem(name, value) {
-      _storage[name] = value.toString();
+    setItem: (name, value) => {
+      storage[name] = value.toString()
     }
-  };
-}
+  }
+}*/
 
 var baseUrl = 'http://localhost:3001';
 

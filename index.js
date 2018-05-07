@@ -11,7 +11,7 @@ import io from 'socket.io-client'
 
 import { SATOSHIS, softLimit8Decimals, sanitizeDecimals } from './util'
 
-var localStorage = localStorage || null
+/*var localStorage = localStorage || null
 if (localStorage === null) {
   let storage = {}
 
@@ -39,7 +39,7 @@ if (sessionStorage === null) {
       storage[name] = value.toString()
     }
   }
-}
+}*/
 
 var baseUrl = 'http://localhost:3001'
 
