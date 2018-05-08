@@ -3,10 +3,15 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.SATOSHIS = undefined;
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+exports.limit8Decimals = limit8Decimals;
+exports.sanitizeDecimals = sanitizeDecimals;
+exports.softLimit8Decimals = softLimit8Decimals;
 
 var _axios = require('axios');
 
@@ -48,8 +53,6 @@ var _socket = require('socket.io-client');
 
 var _socket2 = _interopRequireDefault(_socket);
 
-var _util = require('./util');
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -57,6 +60,51 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var SATOSHIS = exports.SATOSHIS = 100000000;
+
+function limit8Decimals(v) {
+  if (v.length > 8) {
+    return v.slice(0, 8);
+  } else if (v.length === 8) {
+    return v;
+  } else {
+    return v + new Array(8 - v.length).fill(0).join('');
+  }
+}
+
+function sanitizeDecimals(n) {
+  var v = n + '';
+  var num = v.split('.');
+
+  if (num.length > 1) {
+    return num[0] + '.' + limit8Decimals(num[1]);
+  } else {
+    return num[0] + '.00000000';
+  }
+}
+
+function softLimit8Decimals(v) {
+  if (!v) {
+    return v;
+  } else {
+    v = '' + v;
+    if (v.indexOf('.') < 0) {
+      return v;
+    } else {
+      var _v$split = v.split('.'),
+          _v$split2 = _slicedToArray(_v$split, 2),
+          i = _v$split2[0],
+          d = _v$split2[1];
+
+      if (d.length > 8) {
+        return i + '.' + d.slice(0, 8);
+      } else if (v.length <= 8) {
+        return i + '.' + d;
+      }
+    }
+  }
+}
 
 /*var localStorage = localStorage || null
 if (localStorage === null) {
@@ -88,7 +136,7 @@ if (sessionStorage === null) {
   }
 }*/
 
-var baseUrl = 'http://localhost:3001';
+var baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : window.location.origin + '/vexapi';
 
 function defaultAxios(ob) {
   if (!ob) {
@@ -389,8 +437,8 @@ var VexLib = function (_EventEmitter) {
             return {
               rawGive: isBid ? x.give_remaining : x.get_remaining,
               rawGet: isBid ? x.get_remaining : x.give_remaining,
-              give: (isBid ? x.give_remaining : x.get_remaining) / _util.SATOSHIS,
-              get: (isBid ? x.get_remaining : x.give_remaining) / _util.SATOSHIS,
+              give: (isBid ? x.give_remaining : x.get_remaining) / SATOSHIS,
+              get: (isBid ? x.get_remaining : x.give_remaining) / SATOSHIS,
               price: isBid ? x.get_quantity / x.give_quantity : x.give_quantity / x.get_quantity
             };
           }).sort(function (a, b) {
@@ -399,8 +447,8 @@ var VexLib = function (_EventEmitter) {
             sumGive += isBid ? itm.give : itm.get;
             sumGet += isBid ? itm.get : itm.give;
 
-            itm.sumGive = (0, _util.sanitizeDecimals)(sumGive);
-            itm.sumGet = (0, _util.sanitizeDecimals)(sumGet);
+            itm.sumGive = sanitizeDecimals(sumGive);
+            itm.sumGet = sanitizeDecimals(sumGet);
 
             var lastItem = arr[arr.length - 1];
 
@@ -412,10 +460,10 @@ var VexLib = function (_EventEmitter) {
             }
             return arr;
           }, []).map(function (itm) {
-            itm.give = (0, _util.sanitizeDecimals)(itm.give);
-            itm.get = (0, _util.sanitizeDecimals)(itm.get);
-            itm.sumGive = (0, _util.sanitizeDecimals)(itm.sumGive);
-            itm.sumGet = (0, _util.sanitizeDecimals)(itm.sumGive);
+            itm.give = sanitizeDecimals(itm.give);
+            itm.get = sanitizeDecimals(itm.get);
+            itm.sumGive = sanitizeDecimals(itm.sumGive);
+            itm.sumGet = sanitizeDecimals(itm.sumGive);
             return itm;
           });
           cb(null, { giveAsset: give, getAsset: get, book: res });
@@ -457,8 +505,8 @@ var VexLib = function (_EventEmitter) {
               status: itm.status,
               block: itm.block_index,
               price: price,
-              qty: giq / _util.SATOSHIS,
-              total: geq / _util.SATOSHIS,
+              qty: giq / SATOSHIS,
+              total: geq / SATOSHIS,
               hash: itm.tx_hash
             };
           }).reduce(function (arr, itm) {
@@ -857,7 +905,7 @@ var VexLib = function (_EventEmitter) {
         return;
       }
 
-      amount = Math.round(parseFloat(amount) * _util.SATOSHIS);
+      amount = Math.round(parseFloat(amount) * SATOSHIS);
 
       this.axios.post('/vexapi/withdraw', {
         "asset": token,
@@ -917,7 +965,7 @@ var VexLib = function (_EventEmitter) {
         return;
       }
 
-      amount = Math.round(parseFloat(amount) * _util.SATOSHIS);
+      amount = Math.round(parseFloat(amount) * SATOSHIS);
 
       this.axios.post('/vexapi/withdraw', {
         "asset": token,
@@ -1176,7 +1224,9 @@ var VexLib = function (_EventEmitter) {
           field: 'source',
           op: '==',
           value: this.exchangeAddress
-        }]
+        }],
+        order_by: 'tx_index',
+        order_dir: 'DESC'
       }, function (err, data) {
         if (err) {
           fail(err);
