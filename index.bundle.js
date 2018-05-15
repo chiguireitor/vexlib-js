@@ -136,13 +136,14 @@ if (sessionStorage === null) {
   }
 }*/
 
-var baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : window.location.origin + '/vexapi';
+var baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : window.location.origin;
 
 function defaultAxios(ob) {
   if (!ob) {
     ob = {};
   }
 
+  console.log('Using baseurl:', baseUrl);
   ob.baseURL = baseUrl;
 
   return _axios2.default.create(ob);
@@ -156,6 +157,7 @@ function getKeyPairFromSessionStorage() {
 }
 
 function signTransaction(rawHex) {
+  console.log('Signing:', rawHex);
   var tx = _bitcoinjsLib2.default.Transaction.fromHex(rawHex);
   var keyPair = getKeyPairFromSessionStorage();
 
@@ -170,6 +172,7 @@ function signTransaction(rawHex) {
   });
 
   for (var i = 0; i < tx.ins.length; i++) {
+    console.log(i, '<- vin | keypair ->', keyPair);
     builder.sign(i, keyPair);
   }
 

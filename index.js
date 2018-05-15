@@ -82,13 +82,14 @@ if (sessionStorage === null) {
   }
 }*/
 
-var baseUrl = (window.location.hostname === 'localhost')?'http://localhost:3001':window.location.origin+'/vexapi'
+var baseUrl = (window.location.hostname === 'localhost')?'http://localhost:3001':window.location.origin
 
 function defaultAxios(ob) {
   if (!ob) {
     ob = {}
   }
 
+  console.log('Using baseurl:', baseUrl)
   ob.baseURL = baseUrl
 
   return axios.create(ob)
