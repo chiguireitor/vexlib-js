@@ -45,9 +45,9 @@ var _bs = require('bs58');
 
 var _bs2 = _interopRequireDefault(_bs);
 
-var _events = require('events');
+var _eventEmitter = require('event-emitter');
 
-var _events2 = _interopRequireDefault(_events);
+var _eventEmitter2 = _interopRequireDefault(_eventEmitter);
 
 var _socket = require('socket.io-client');
 
@@ -157,7 +157,6 @@ function getKeyPairFromSessionStorage() {
 }
 
 function signTransaction(rawHex) {
-  console.log('Signing:', rawHex);
   var tx = _bitcoinjsLib2.default.Transaction.fromHex(rawHex);
   var keyPair = getKeyPairFromSessionStorage();
 
@@ -172,7 +171,6 @@ function signTransaction(rawHex) {
   });
 
   for (var i = 0; i < tx.ins.length; i++) {
-    console.log(i, '<- vin | keypair ->', keyPair);
     builder.sign(i, keyPair);
   }
 
@@ -1371,7 +1369,7 @@ var VexLib = function (_EventEmitter) {
   }]);
 
   return VexLib;
-}(_events2.default);
+}(_eventEmitter2.default);
 
 exports.default = VexLib;
 'use strict';
