@@ -1,3 +1,27 @@
+/**
+ * Copyright 2018 Sistemas Timitacon C.A.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ *
+ * Original Author: johnvillar@contimita.com
+ *
+ **/
 import axios from 'axios'
 import bip39 from 'bip39'
 import hash from 'hash.js'
@@ -52,37 +76,7 @@ export function softLimit8Decimals(v) {
   }
 }
 
-/*var localStorage = localStorage || null
-if (localStorage === null) {
-  let storage = {}
-
-  localStorage = {
-    getItem: (name) => {
-      return storage[name] || null
-    },
-
-    setItem: (name, value) => {
-      storage[name] = value.toString()
-    }
-  }
-}
-
-var sessionStorage = sessionStorage || null
-if (sessionStorage === null) {
-  let storage = {}
-
-  sessionStorage = {
-    getItem: (name) => {
-      return storage[name] || null
-    },
-
-    setItem: (name, value) => {
-      storage[name] = value.toString()
-    }
-  }
-}*/
-
-var baseUrl = (window.location.hostname === 'localhost')?'http://localhost:3001':window.location.origin
+var baseUrl = (window.location.hostname === 'localhost')?'http://localhost:8085':window.location.origin
 
 function defaultAxios(ob) {
   if (!ob) {
@@ -102,27 +96,48 @@ function getKeyPairFromSessionStorage() {
   return new bitcoin.ECPair(d, null, {network: bitcoin.networks.testnet})
 }
 
-function signTransaction(rawHex) {
+var devices = {}
+
+function signTransaction(rawHex, cb) {
   let tx = bitcoin.Transaction.fromHex(rawHex)
-  let keyPair = getKeyPairFromSessionStorage()
+  let device = sessionStorage.getItem('device')
+  console.log(device)
 
-  let builder = new bitcoin.TransactionBuilder(bitcoin.networks.testnet)
+  if (device === 'userpass') {
+    let keyPair = getKeyPairFromSessionStorage()
 
-  tx.ins.forEach(vin => {
-    builder.addInput(vin.hash.reverse().toString('hex'), vin.index)
-  })
+    let builder = new bitcoin.TransactionBuilder(bitcoin.networks.testnet)
 
-  tx.outs.forEach(vout => {
-    builder.addOutput(vout.script, vout.value)
-  })
+    tx.ins.forEach(vin => {
+      builder.addInput(vin.hash.reverse().toString('hex'), vin.index)
+    })
 
-  for (let i=0; i < tx.ins.length; i++) {
-    builder.sign(i, keyPair)
+    tx.outs.forEach(vout => {
+      builder.addOutput(vout.script, vout.value)
+    })
+
+    for (let i=0; i < tx.ins.length; i++) {
+      builder.sign(i, keyPair)
+    }
+
+    let built = builder.build()
+
+    cb(built.toHex())
+  } else if (device === 'trezor') {
+    let Trezor = devices[device](0)
+
+    Trezor.signTx(tx.ins, tx.outs, (err, tx) => {
+      if (err) {
+        console.log('Trezor ERR:')
+        console.log(err)
+        console.trace()
+      } else {
+        console.log('Serialized TX:', tx)
+
+        cb(tx)
+      }
+    })
   }
-
-  let built = builder.build()
-
-  return built.toHex()
 }
 
 var singleton = null
@@ -142,6 +157,10 @@ export default class VexLib extends EventEmitter {
     }
 
     return singleton
+  }
+
+  registerDeviceProvider(name, proto) {
+    devices[name] = proto
   }
 
   constructor(options) {
@@ -259,14 +278,14 @@ export default class VexLib extends EventEmitter {
   }
 
   signAndBroadcastTransaction(rawtx, cb) {
-    let signed = signTransaction(rawtx)
-
-    this.axios.post('/vexapi/sendtx', {
-      rawtx: signed
-    }).then((response) => {
-      cb(null, response.data.result)
-    }).catch(err => {
-      cb(err)
+    signTransaction(rawtx, (signed) => {
+      this.axios.post('/vexapi/sendtx', {
+        rawtx: signed
+      }).then((response) => {
+        cb(null, response.data.result)
+      }).catch(err => {
+        cb(err)
+      })
     })
   }
 
@@ -577,7 +596,10 @@ export default class VexLib extends EventEmitter {
         let msg = JSON.stringify(pkg)
         let textBytes = aesjs.utils.utf8.toBytes(msg)
         let encryptedBytes = aesCtr.encrypt(textBytes)
-        let encryptedHex = Buffer.from(aesjs.utils.hex.fromBytes(encryptedBytes), 'hex').toString('base64')
+        let intermediaryHex = aesjs.utils.hex.fromBytes(encryptedBytes)
+        console.log('Encrypted intermediary size:', intermediaryHex.length/2)
+        let encryptedHex = Buffer.from(intermediaryHex, 'hex').toString('base64')
+        console.log('Encrypted base64:', encryptedHex)
 
         //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
         this.axios.post(`/vexapi/userdocs/${userAddress}`, {
@@ -596,6 +618,13 @@ export default class VexLib extends EventEmitter {
   }
 
   createUser(email, password, uiLang, cb) {
+    let externalToken = null
+
+    if (typeof(password) === "object") {
+      externalToken = password
+      password = null
+    }
+
     let itemKey = `_user_data_${email}_`
 
     if (!cb) {
@@ -603,46 +632,70 @@ export default class VexLib extends EventEmitter {
       uiLang = this.lang
     }
 
-    let mnemonic = bip39.generateMnemonic(null, null, bip39.wordlists[uiLang])
-    let keyPair = VexLib.keyPairFromMnemonic(mnemonic)
-    let address = keyPair.getAddress()
-
-    let pkg = {address, mnemonic, lang: uiLang}
-    let msg = JSON.stringify(pkg)
-
-    let key = hash.sha256().update(password).digest()
-    let aesCtr = new aesjs.ModeOfOperation.ctr(key, new aesjs.Counter(5))
-    let textBytes = aesjs.utils.utf8.toBytes(msg)
-    let encryptedBytes = aesCtr.encrypt(textBytes)
-    let encryptedHex = aesjs.utils.hex.fromBytes(encryptedBytes)
-
-    let husr = hash.sha256().update(email).digest('hex')
-
     let fail = (err) => {
       cb(err || 'bad-user-data')
     }
 
-    let success = () => {
-      sessionStorage.setItem('currentAddress', address)
-      sessionStorage.setItem('currentMnemonic', mnemonic)
-      localStorage.setItem(itemKey, encryptedHex)
-      cb(null, {address, mnemonic, keyPair})
+    let completeRegister = (encryptedHex, address, mnemonic) => {
+      let husr = hash.sha256().update(email).digest('hex')
+
+      let success = () => {
+        if (externalToken) {
+          sessionStorage.setItem('device', externalToken.getName())
+          localStorage.setItem(itemKey, externalToken.getName())
+          cb(null, {address, device: externalToken.getName()})
+        } else {
+          sessionStorage.setItem('device', 'userpass')
+          sessionStorage.setItem('currentAddress', address)
+          sessionStorage.setItem('currentMnemonic', mnemonic)
+          localStorage.setItem(itemKey, encryptedHex)
+          let keyPair = VexLib.keyPairFromMnemonic(mnemonic)
+          cb(null, {address, mnemonic, keyPair})
+        }
+      }
+
+      this.axios.post(`/vexapi/user`, {
+        userid: husr,
+        email,
+        cryptdata: encryptedHex,
+        address
+      }).then((response) => {
+        if (response.status === 200) {
+          success()
+        } else {
+          fail()
+        }
+      }).catch((err) => {
+        fail(err)
+      })
     }
 
-    this.axios.post(`/vexapi/user`, {
-      userid: husr,
-      email,
-      cryptdata: encryptedHex,
-      address
-    }).then((response) => {
-      if (response.status === 200) {
-        success()
-      } else {
-        fail()
-      }
-    }).catch((err) => {
-      fail(err)
-    })
+    if (externalToken) {
+      externalToken.getAddress((address) => {
+        if (!address) {
+          fail('cant-comm-token')
+        } else {
+          let pkg = {address, token: externalToken.getName()}
+          let msg = JSON.stringify(pkg)
+          completeRegister(null, address)
+        }
+      })
+    } else {
+      let mnemonic = bip39.generateMnemonic(null, null, bip39.wordlists[uiLang])
+      let keyPair = VexLib.keyPairFromMnemonic(mnemonic)
+      let address = keyPair.getAddress()
+
+      let pkg = {address, mnemonic, lang: uiLang}
+      let msg = JSON.stringify(pkg)
+
+      let key = hash.sha256().update(password).digest()
+      let aesCtr = new aesjs.ModeOfOperation.ctr(key, new aesjs.Counter(5))
+      let textBytes = aesjs.utils.utf8.toBytes(msg)
+      let encryptedBytes = aesCtr.encrypt(textBytes)
+      let encryptedHex = aesjs.utils.hex.fromBytes(encryptedBytes)
+
+      completeRegister(encryptedHex, address, mnemonic)
+    }
   }
 
   createOrder(giveAsset, giveAmount, getAsset, getAmount, cb) {
@@ -675,16 +728,16 @@ export default class VexLib extends EventEmitter {
     }).then((response) => {
       if (response.status === 200) {
         console.log(response.data)
-        let signed = signTransaction(response.data.result)
-
-        return this.axios.post('/vexapi/sendtx', {
-          rawtx: signed
+        signTransaction(response.data.result, (signed) => {
+          this.axios.post('/vexapi/sendtx', {
+            rawtx: signed
+          }).then((response) => {
+            success(response.data.result)
+          })
         })
       } else {
         fail('error-creating-order-bad-response')
       }
-    }).then((response) => {
-      success(response.data.result)
     }).catch((err) => {
       fail(err)
     })
@@ -717,10 +770,10 @@ export default class VexLib extends EventEmitter {
       "source": currentAddress
     }).then((response) => {
       if (response.status === 200) {
-        let signed = signTransaction(response.data.result)
-
-        return this.axios.post('/vexapi/sendtx', {
-          rawtx: signed
+        signTransaction(response.data.result, (signed) => {
+          return this.axios.post('/vexapi/sendtx', {
+            rawtx: signed
+          })
         })
       } else {
         fail()
@@ -759,10 +812,10 @@ export default class VexLib extends EventEmitter {
       "source": currentAddress
     }).then((response) => {
       if (response.status === 200) {
-        let signed = signTransaction(response.data.result)
-
-        return this.axios.post('/vexapi/sendtx', {
-          rawtx: signed
+        signTransaction(response.data.result, (signed) => {
+          return this.axios.post('/vexapi/sendtx', {
+            rawtx: signed
+          })
         })
       } else {
         fail()
@@ -829,10 +882,10 @@ export default class VexLib extends EventEmitter {
         if (response.data.error) {
           fail(response.data.error)
         } else {
-          let signed = signTransaction(response.data.result)
-
-          return this.axios.post('/vexapi/sendtx', {
-            rawtx: signed
+          signTransaction(response.data.result, (signed) => {
+            return this.axios.post('/vexapi/sendtx', {
+              rawtx: signed
+            })
           })
         }
       } else {
@@ -886,10 +939,10 @@ export default class VexLib extends EventEmitter {
         if (response.data.error) {
           fail(response.data.error)
         } else {
-          let signed = signTransaction(response.data.result)
-
-          return this.axios.post('/vexapi/sendtx', {
-            rawtx: signed
+          signTransaction(response.data.result, (signed) => {
+            return this.axios.post('/vexapi/sendtx', {
+              rawtx: signed
+            })
           })
         }
       } else {
@@ -928,10 +981,10 @@ export default class VexLib extends EventEmitter {
       "source": currentAddress
     }).then((response) => {
       if (response.status === 200) {
-        let signed = signTransaction(response.data.result)
-
-        return this.axios.post('/vexapi/sendtx', {
-          rawtx: signed
+        signTransaction(response.data.result, (signed) => {
+          return this.axios.post('/vexapi/sendtx', {
+            rawtx: signed
+          })
         })
       } else {
         fail()
@@ -1074,13 +1127,14 @@ export default class VexLib extends EventEmitter {
       if (err) {
         fail(err)
       } else {
-        let signedTransaction = signTransaction(data.result)
-        this.axios.post('/vexapi/sendtx', {
-          rawtx: signedTransaction
-        }).then((response) => {
-          success(response.data.result)
-        }).catch(err => {
-          fail(err)
+        signTransaction(data.result, (signedTransaction) => {
+          this.axios.post('/vexapi/sendtx', {
+            rawtx: signedTransaction
+          }).then((response) => {
+            success(response.data.result)
+          }).catch(err => {
+            fail(err)
+          })
         })
       }
     })
@@ -1161,55 +1215,90 @@ export default class VexLib extends EventEmitter {
     })
   }
 
-  localLogin(cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+  localLogin(externalToken, cb) {
 
-    this.getChallenge((err, challenge) => {
-      if (err) {
-        cb(err)
-      } else {
-        let keyPair = getKeyPairFromSessionStorage()
-        let signature = bitcoinMessage.sign(challenge, keyPair.d.toBuffer(32), keyPair.compressed)
+    if (typeof(cb) === 'undefined') {
+      cb = externalToken
+      externalToken = null
+    }
 
-        let sigResult = signature.toString('base64')
+    let sign = (currentAddress) => {
+      sessionStorage.setItem('currentAddress', currentAddress)
+      this.getChallenge((err, challenge) => {
+        if (err) {
+          cb(err)
+        } else {
+          let postChallenge = (sigResult) => {
+            if (!sigResult) {
+              console.log(sigResult)
+              cb('couldnt-sign')
+            } else {
+              this.axios.post(`/vexapi/challenge/${currentAddress}`, {signature: sigResult}).then((response) => {
+                if (response.data.success) {
+                  this.axios = defaultAxios({headers: {
+                    'addr': currentAddress,
+                    'token': response.data.accessToken
+                  }})
 
-        this.axios.post(`/vexapi/challenge/${currentAddress}`, {signature: sigResult}).then((response) => {
-          if (response.data.success) {
-            this.axios = defaultAxios({headers: {
-              'addr': currentAddress,
-              'token': response.data.accessToken
-            }})
-
-            this.userEnabled((err, isEnabled) => {
-              if (err) {
-                cb(err)
-              } else {
-                if (isEnabled) {
-                  cb(null, response.data)
+                  this.userEnabled((err, isEnabled) => {
+                    if (err) {
+                      cb(err)
+                    } else {
+                      if (isEnabled) {
+                        cb(null, response.data)
+                      } else {
+                        cb('user-not-enabled')
+                      }
+                    }
+                  })
                 } else {
-                  cb('user-not-enabled')
+                  cb('challenge-error')
                 }
-              }
-            })
-          } else {
-            cb('challenge-error')
+              }).catch(err => {
+                cb(err)
+              })
+            }
           }
 
-        }).catch(err => {
-          cb(err)
-        })
-      }
-    })
+          if (externalToken) {
+            sessionStorage.setItem('device', externalToken.getName())
+            externalToken.signMessage(challenge, postChallenge)
+          } else {
+            let keyPair = getKeyPairFromSessionStorage()
+            let signature = bitcoinMessage.sign(challenge, keyPair.d.toBuffer(32), keyPair.compressed)
+
+            let sigResult = signature.toString('base64')
+
+            postChallenge(sigResult)
+          }
+        }
+      })
+    }
+
+    if (!externalToken) {
+      sign(sessionStorage.getItem('currentAddress'))
+    } else {
+      externalToken.getAddress(sign)
+    }
   }
 
-  remoteLogin(email, password, cb) {
-    this.getUser(email, password, (err, userData) => {
-      if (err) {
-        cb(err)
-      } else {
-        this.localLogin(cb)
-      }
-    })
+  remoteLogin(email, password, externalToken, cb) {
+    if (typeof(cb) === "undefined") {
+      cb = externalToken
+      externalToken = null
+    }
+
+    if (externalToken) {
+      this.localLogin(externalToken, cb)
+    } else {
+      this.getUser(email, password, (err, userData) => {
+        if (err) {
+          cb(err)
+        } else {
+          this.localLogin(null, cb)
+        }
+      })
+    }
   }
 
   remoteLogout(cb) {

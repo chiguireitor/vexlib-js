@@ -1,17 +1,19 @@
 vexlib-js:
 ====
 
-En el shell:
+En el shell/On the shell:
 ```
-yarn add ssh://git@192.168.3.6:10022/vex/vexlib-js.git
+yarn add vexlib-js
 ```
 
-En el código:
+En el código/On your code:
 ```
 import VexLib from 'vexlib-js'
 
 const vl = VexLib.singleton({
-  baseUrl: 'localhost', // Default: 'vex.xcp.host'
+  baseUrl: 'localhost', // Default: 'vex.xcp.host' if serving from the web
   lang: 'ES' // Default: 'EN'
   })
 ```
+
+MIT Licensed 2018 by Sistemas Timitacon C.A.

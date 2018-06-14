@@ -5,9 +5,35 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.SATOSHIS = undefined;
 
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
+var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }(); /**
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * Copyright 2018 Sistemas Timitacon C.A.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * Permission is hereby granted, free of charge, to any person obtaining a copy
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * of this software and associated documentation files (the "Software"), to
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * deal in the Software without restriction, including without limitation the
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * sell copies of the Software, and to permit persons to whom the Software is
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * furnished to do so, subject to the following conditions:
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * The above copyright notice and this permission notice shall be included in
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * all copies or substantial portions of the Software.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * IN THE SOFTWARE.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * Original Author: johnvillar@contimita.com
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          **/
+
 
 exports.limit8Decimals = limit8Decimals;
 exports.sanitizeDecimals = sanitizeDecimals;
@@ -106,37 +132,7 @@ function softLimit8Decimals(v) {
   }
 }
 
-/*var localStorage = localStorage || null
-if (localStorage === null) {
-  let storage = {}
-
-  localStorage = {
-    getItem: (name) => {
-      return storage[name] || null
-    },
-
-    setItem: (name, value) => {
-      storage[name] = value.toString()
-    }
-  }
-}
-
-var sessionStorage = sessionStorage || null
-if (sessionStorage === null) {
-  let storage = {}
-
-  sessionStorage = {
-    getItem: (name) => {
-      return storage[name] || null
-    },
-
-    setItem: (name, value) => {
-      storage[name] = value.toString()
-    }
-  }
-}*/
-
-var baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : window.location.origin;
+var baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:8085' : window.location.origin;
 
 function defaultAxios(ob) {
   if (!ob) {
@@ -156,27 +152,48 @@ function getKeyPairFromSessionStorage() {
   return new _bitcoinjsLib2.default.ECPair(d, null, { network: _bitcoinjsLib2.default.networks.testnet });
 }
 
-function signTransaction(rawHex) {
+var devices = {};
+
+function signTransaction(rawHex, cb) {
   var tx = _bitcoinjsLib2.default.Transaction.fromHex(rawHex);
-  var keyPair = getKeyPairFromSessionStorage();
+  var device = sessionStorage.getItem('device');
+  console.log(device);
 
-  var builder = new _bitcoinjsLib2.default.TransactionBuilder(_bitcoinjsLib2.default.networks.testnet);
+  if (device === 'userpass') {
+    var keyPair = getKeyPairFromSessionStorage();
 
-  tx.ins.forEach(function (vin) {
-    builder.addInput(vin.hash.reverse().toString('hex'), vin.index);
-  });
+    var builder = new _bitcoinjsLib2.default.TransactionBuilder(_bitcoinjsLib2.default.networks.testnet);
 
-  tx.outs.forEach(function (vout) {
-    builder.addOutput(vout.script, vout.value);
-  });
+    tx.ins.forEach(function (vin) {
+      builder.addInput(vin.hash.reverse().toString('hex'), vin.index);
+    });
 
-  for (var i = 0; i < tx.ins.length; i++) {
-    builder.sign(i, keyPair);
+    tx.outs.forEach(function (vout) {
+      builder.addOutput(vout.script, vout.value);
+    });
+
+    for (var i = 0; i < tx.ins.length; i++) {
+      builder.sign(i, keyPair);
+    }
+
+    var built = builder.build();
+
+    cb(built.toHex());
+  } else if (device === 'trezor') {
+    var Trezor = devices[device](0);
+
+    Trezor.signTx(tx.ins, tx.outs, function (err, tx) {
+      if (err) {
+        console.log('Trezor ERR:');
+        console.log(err);
+        console.trace();
+      } else {
+        console.log('Serialized TX:', tx);
+
+        cb(tx);
+      }
+    });
   }
-
-  var built = builder.build();
-
-  return built.toHex();
 }
 
 var _singleton = null;
@@ -184,7 +201,12 @@ var _singleton = null;
 var VexLib = function (_EventEmitter) {
   _inherits(VexLib, _EventEmitter);
 
-  _createClass(VexLib, null, [{
+  _createClass(VexLib, [{
+    key: 'registerDeviceProvider',
+    value: function registerDeviceProvider(name, proto) {
+      devices[name] = proto;
+    }
+  }], [{
     key: 'singleton',
     value: function singleton(options) {
       if (!options) {
@@ -337,14 +359,16 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'signAndBroadcastTransaction',
     value: function signAndBroadcastTransaction(rawtx, cb) {
-      var signed = signTransaction(rawtx);
+      var _this4 = this;
 
-      this.axios.post('/vexapi/sendtx', {
-        rawtx: signed
-      }).then(function (response) {
-        cb(null, response.data.result);
-      }).catch(function (err) {
-        cb(err);
+      signTransaction(rawtx, function (signed) {
+        _this4.axios.post('/vexapi/sendtx', {
+          rawtx: signed
+        }).then(function (response) {
+          cb(null, response.data.result);
+        }).catch(function (err) {
+          cb(err);
+        });
       });
     }
   }, {
@@ -637,7 +661,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'sendRegisterPkg',
     value: function sendRegisterPkg(userAddress, pkg, cb) {
-      var _this4 = this;
+      var _this5 = this;
 
       var fail = function fail(err) {
         cb(err || 'bad-user-data');
@@ -654,10 +678,13 @@ var VexLib = function (_EventEmitter) {
           var msg = JSON.stringify(pkg);
           var textBytes = _aesJs2.default.utils.utf8.toBytes(msg);
           var encryptedBytes = aesCtr.encrypt(textBytes);
-          var encryptedHex = Buffer.from(_aesJs2.default.utils.hex.fromBytes(encryptedBytes), 'hex').toString('base64');
+          var intermediaryHex = _aesJs2.default.utils.hex.fromBytes(encryptedBytes);
+          console.log('Encrypted intermediary size:', intermediaryHex.length / 2);
+          var encryptedHex = Buffer.from(intermediaryHex, 'hex').toString('base64');
+          console.log('Encrypted base64:', encryptedHex);
 
           //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
-          _this4.axios.post('/vexapi/userdocs/' + userAddress, {
+          _this5.axios.post('/vexapi/userdocs/' + userAddress, {
             data: encryptedHex
           }).then(function (data) {
             success();
@@ -674,6 +701,15 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'createUser',
     value: function createUser(email, password, uiLang, cb) {
+      var _this6 = this;
+
+      var externalToken = null;
+
+      if ((typeof password === 'undefined' ? 'undefined' : _typeof(password)) === "object") {
+        externalToken = password;
+        password = null;
+      }
+
       var itemKey = '_user_data_' + email + '_';
 
       if (!cb) {
@@ -681,51 +717,75 @@ var VexLib = function (_EventEmitter) {
         uiLang = this.lang;
       }
 
-      var mnemonic = _bip2.default.generateMnemonic(null, null, _bip2.default.wordlists[uiLang]);
-      var keyPair = VexLib.keyPairFromMnemonic(mnemonic);
-      var address = keyPair.getAddress();
-
-      var pkg = { address: address, mnemonic: mnemonic, lang: uiLang };
-      var msg = JSON.stringify(pkg);
-
-      var key = _hash2.default.sha256().update(password).digest();
-      var aesCtr = new _aesJs2.default.ModeOfOperation.ctr(key, new _aesJs2.default.Counter(5));
-      var textBytes = _aesJs2.default.utils.utf8.toBytes(msg);
-      var encryptedBytes = aesCtr.encrypt(textBytes);
-      var encryptedHex = _aesJs2.default.utils.hex.fromBytes(encryptedBytes);
-
-      var husr = _hash2.default.sha256().update(email).digest('hex');
-
       var fail = function fail(err) {
         cb(err || 'bad-user-data');
       };
 
-      var success = function success() {
-        sessionStorage.setItem('currentAddress', address);
-        sessionStorage.setItem('currentMnemonic', mnemonic);
-        localStorage.setItem(itemKey, encryptedHex);
-        cb(null, { address: address, mnemonic: mnemonic, keyPair: keyPair });
+      var completeRegister = function completeRegister(encryptedHex, address, mnemonic) {
+        var husr = _hash2.default.sha256().update(email).digest('hex');
+
+        var success = function success() {
+          if (externalToken) {
+            sessionStorage.setItem('device', externalToken.getName());
+            localStorage.setItem(itemKey, externalToken.getName());
+            cb(null, { address: address, device: externalToken.getName() });
+          } else {
+            sessionStorage.setItem('device', 'userpass');
+            sessionStorage.setItem('currentAddress', address);
+            sessionStorage.setItem('currentMnemonic', mnemonic);
+            localStorage.setItem(itemKey, encryptedHex);
+            var keyPair = VexLib.keyPairFromMnemonic(mnemonic);
+            cb(null, { address: address, mnemonic: mnemonic, keyPair: keyPair });
+          }
+        };
+
+        _this6.axios.post('/vexapi/user', {
+          userid: husr,
+          email: email,
+          cryptdata: encryptedHex,
+          address: address
+        }).then(function (response) {
+          if (response.status === 200) {
+            success();
+          } else {
+            fail();
+          }
+        }).catch(function (err) {
+          fail(err);
+        });
       };
 
-      this.axios.post('/vexapi/user', {
-        userid: husr,
-        email: email,
-        cryptdata: encryptedHex,
-        address: address
-      }).then(function (response) {
-        if (response.status === 200) {
-          success();
-        } else {
-          fail();
-        }
-      }).catch(function (err) {
-        fail(err);
-      });
+      if (externalToken) {
+        externalToken.getAddress(function (address) {
+          if (!address) {
+            fail('cant-comm-token');
+          } else {
+            var pkg = { address: address, token: externalToken.getName() };
+            var msg = JSON.stringify(pkg);
+            completeRegister(null, address);
+          }
+        });
+      } else {
+        var mnemonic = _bip2.default.generateMnemonic(null, null, _bip2.default.wordlists[uiLang]);
+        var keyPair = VexLib.keyPairFromMnemonic(mnemonic);
+        var address = keyPair.getAddress();
+
+        var pkg = { address: address, mnemonic: mnemonic, lang: uiLang };
+        var msg = JSON.stringify(pkg);
+
+        var key = _hash2.default.sha256().update(password).digest();
+        var aesCtr = new _aesJs2.default.ModeOfOperation.ctr(key, new _aesJs2.default.Counter(5));
+        var textBytes = _aesJs2.default.utils.utf8.toBytes(msg);
+        var encryptedBytes = aesCtr.encrypt(textBytes);
+        var encryptedHex = _aesJs2.default.utils.hex.fromBytes(encryptedBytes);
+
+        completeRegister(encryptedHex, address, mnemonic);
+      }
     }
   }, {
     key: 'createOrder',
     value: function createOrder(giveAsset, giveAmount, getAsset, getAmount, cb) {
-      var _this5 = this;
+      var _this7 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -737,7 +797,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this5.emit('need-login');
+          _this7.emit('need-login');
         }
 
         cb(err || 'error-creating-order');
@@ -756,16 +816,16 @@ var VexLib = function (_EventEmitter) {
       }).then(function (response) {
         if (response.status === 200) {
           console.log(response.data);
-          var signed = signTransaction(response.data.result);
-
-          return _this5.axios.post('/vexapi/sendtx', {
-            rawtx: signed
+          signTransaction(response.data.result, function (signed) {
+            _this7.axios.post('/vexapi/sendtx', {
+              rawtx: signed
+            }).then(function (response) {
+              success(response.data.result);
+            });
           });
         } else {
           fail('error-creating-order-bad-response');
         }
-      }).then(function (response) {
-        success(response.data.result);
       }).catch(function (err) {
         fail(err);
       });
@@ -773,7 +833,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'cancelOrder',
     value: function cancelOrder(txid, cb) {
-      var _this6 = this;
+      var _this8 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -786,7 +846,7 @@ var VexLib = function (_EventEmitter) {
       var fail = function fail(err) {
 
         if (err.response && err.response.status === 401) {
-          _this6.emit('need-login');
+          _this8.emit('need-login');
         }
 
         cb('error-creating-cancel');
@@ -801,10 +861,10 @@ var VexLib = function (_EventEmitter) {
         "source": currentAddress
       }).then(function (response) {
         if (response.status === 200) {
-          var signed = signTransaction(response.data.result);
-
-          return _this6.axios.post('/vexapi/sendtx', {
-            rawtx: signed
+          signTransaction(response.data.result, function (signed) {
+            return _this8.axios.post('/vexapi/sendtx', {
+              rawtx: signed
+            });
           });
         } else {
           fail();
@@ -818,7 +878,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'reportFiatDeposit',
     value: function reportFiatDeposit(getToken, getAmount, depositId, cb) {
-      var _this7 = this;
+      var _this9 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -831,7 +891,7 @@ var VexLib = function (_EventEmitter) {
       var fail = function fail(err) {
 
         if (err.response && err.response.status === 401) {
-          _this7.emit('need-login');
+          _this9.emit('need-login');
         }
 
         cb('error-creating-report');
@@ -846,10 +906,10 @@ var VexLib = function (_EventEmitter) {
         "source": currentAddress
       }).then(function (response) {
         if (response.status === 200) {
-          var signed = signTransaction(response.data.result);
-
-          return _this7.axios.post('/vexapi/sendtx', {
-            rawtx: signed
+          signTransaction(response.data.result, function (signed) {
+            return _this9.axios.post('/vexapi/sendtx', {
+              rawtx: signed
+            });
           });
         } else {
           fail();
@@ -863,7 +923,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateWithdrawal',
     value: function generateWithdrawal(token, amount, address, info, cb) {
-      var _this8 = this;
+      var _this10 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -875,7 +935,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this8.emit('need-login');
+          _this10.emit('need-login');
         }
 
         cb(err || 'error-generating-withdrawal');
@@ -919,10 +979,10 @@ var VexLib = function (_EventEmitter) {
           if (response.data.error) {
             fail(response.data.error);
           } else {
-            var signed = signTransaction(response.data.result);
-
-            return _this8.axios.post('/vexapi/sendtx', {
-              rawtx: signed
+            signTransaction(response.data.result, function (signed) {
+              return _this10.axios.post('/vexapi/sendtx', {
+                rawtx: signed
+              });
             });
           }
         } else {
@@ -937,7 +997,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateCodeWithdrawal',
     value: function generateCodeWithdrawal(token, amount, code, cb) {
-      var _this9 = this;
+      var _this11 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -949,7 +1009,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this9.emit('need-login');
+          _this11.emit('need-login');
         }
 
         cb(err || 'error-generating-withdrawal');
@@ -979,10 +1039,10 @@ var VexLib = function (_EventEmitter) {
           if (response.data.error) {
             fail(response.data.error);
           } else {
-            var signed = signTransaction(response.data.result);
-
-            return _this9.axios.post('/vexapi/sendtx', {
-              rawtx: signed
+            signTransaction(response.data.result, function (signed) {
+              return _this11.axios.post('/vexapi/sendtx', {
+                rawtx: signed
+              });
             });
           }
         } else {
@@ -997,7 +1057,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generatePaymentBill',
     value: function generatePaymentBill(token, quantity, concept, cb) {
-      var _this10 = this;
+      var _this12 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1009,7 +1069,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this10.emit('need-login');
+          _this12.emit('need-login');
         }
 
         cb('error-creating-report');
@@ -1024,10 +1084,10 @@ var VexLib = function (_EventEmitter) {
         "source": currentAddress
       }).then(function (response) {
         if (response.status === 200) {
-          var signed = signTransaction(response.data.result);
-
-          return _this10.axios.post('/vexapi/sendtx', {
-            rawtx: signed
+          signTransaction(response.data.result, function (signed) {
+            return _this12.axios.post('/vexapi/sendtx', {
+              rawtx: signed
+            });
           });
         } else {
           fail();
@@ -1110,7 +1170,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getDeposits',
     value: function getDeposits(cb) {
-      var _this11 = this;
+      var _this13 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1123,7 +1183,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this11.emit('need-login');
+          _this13.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -1146,7 +1206,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateTokenDepositAddress',
     value: function generateTokenDepositAddress(token, cb) {
-      var _this12 = this;
+      var _this14 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1159,7 +1219,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this12.emit('need-login');
+          _this14.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -1179,13 +1239,14 @@ var VexLib = function (_EventEmitter) {
         if (err) {
           fail(err);
         } else {
-          var signedTransaction = signTransaction(data.result);
-          _this12.axios.post('/vexapi/sendtx', {
-            rawtx: signedTransaction
-          }).then(function (response) {
-            success(response.data.result);
-          }).catch(function (err) {
-            fail(err);
+          signTransaction(data.result, function (signedTransaction) {
+            _this14.axios.post('/vexapi/sendtx', {
+              rawtx: signedTransaction
+            }).then(function (response) {
+              success(response.data.result);
+            }).catch(function (err) {
+              fail(err);
+            });
           });
         }
       });
@@ -1193,7 +1254,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getTokenDepositAddress',
     value: function getTokenDepositAddress(token, cb) {
-      var _this13 = this;
+      var _this15 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1206,7 +1267,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this13.emit('need-login');
+          _this15.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -1268,64 +1329,99 @@ var VexLib = function (_EventEmitter) {
     }
   }, {
     key: 'localLogin',
-    value: function localLogin(cb) {
-      var _this14 = this;
+    value: function localLogin(externalToken, cb) {
+      var _this16 = this;
 
-      var currentAddress = sessionStorage.getItem('currentAddress');
+      if (typeof cb === 'undefined') {
+        cb = externalToken;
+        externalToken = null;
+      }
 
-      this.getChallenge(function (err, challenge) {
-        if (err) {
-          cb(err);
-        } else {
-          var keyPair = getKeyPairFromSessionStorage();
-          var signature = _bitcoinjsMessage2.default.sign(challenge, keyPair.d.toBuffer(32), keyPair.compressed);
-
-          var sigResult = signature.toString('base64');
-
-          _this14.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
-            if (response.data.success) {
-              _this14.axios = defaultAxios({ headers: {
-                  'addr': currentAddress,
-                  'token': response.data.accessToken
-                } });
-
-              _this14.userEnabled(function (err, isEnabled) {
-                if (err) {
-                  cb(err);
-                } else {
-                  if (isEnabled) {
-                    cb(null, response.data);
-                  } else {
-                    cb('user-not-enabled');
-                  }
-                }
-              });
-            } else {
-              cb('challenge-error');
-            }
-          }).catch(function (err) {
+      var sign = function sign(currentAddress) {
+        sessionStorage.setItem('currentAddress', currentAddress);
+        _this16.getChallenge(function (err, challenge) {
+          if (err) {
             cb(err);
-          });
-        }
-      });
+          } else {
+            var postChallenge = function postChallenge(sigResult) {
+              if (!sigResult) {
+                console.log(sigResult);
+                cb('couldnt-sign');
+              } else {
+                _this16.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
+                  if (response.data.success) {
+                    _this16.axios = defaultAxios({ headers: {
+                        'addr': currentAddress,
+                        'token': response.data.accessToken
+                      } });
+
+                    _this16.userEnabled(function (err, isEnabled) {
+                      if (err) {
+                        cb(err);
+                      } else {
+                        if (isEnabled) {
+                          cb(null, response.data);
+                        } else {
+                          cb('user-not-enabled');
+                        }
+                      }
+                    });
+                  } else {
+                    cb('challenge-error');
+                  }
+                }).catch(function (err) {
+                  cb(err);
+                });
+              }
+            };
+
+            if (externalToken) {
+              sessionStorage.setItem('device', externalToken.getName());
+              externalToken.signMessage(challenge, postChallenge);
+            } else {
+              var keyPair = getKeyPairFromSessionStorage();
+              var signature = _bitcoinjsMessage2.default.sign(challenge, keyPair.d.toBuffer(32), keyPair.compressed);
+
+              var sigResult = signature.toString('base64');
+
+              postChallenge(sigResult);
+            }
+          }
+        });
+      };
+
+      if (!externalToken) {
+        sign(sessionStorage.getItem('currentAddress'));
+      } else {
+        externalToken.getAddress(sign);
+      }
     }
   }, {
     key: 'remoteLogin',
-    value: function remoteLogin(email, password, cb) {
-      var _this15 = this;
+    value: function remoteLogin(email, password, externalToken, cb) {
+      var _this17 = this;
 
-      this.getUser(email, password, function (err, userData) {
-        if (err) {
-          cb(err);
-        } else {
-          _this15.localLogin(cb);
-        }
-      });
+      if (typeof cb === "undefined") {
+        cb = externalToken;
+        externalToken = null;
+      }
+
+      if (externalToken) {
+        this.localLogin(externalToken, cb);
+      } else {
+        this.getUser(email, password, function (err, userData) {
+          if (err) {
+            cb(err);
+          } else {
+            _this17.localLogin(null, cb);
+          }
+        });
+      }
     }
   }, {
     key: 'remoteLogout',
     value: function remoteLogout(cb) {
-      var _this16 = this;
+      var _this18 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1336,12 +1432,12 @@ var VexLib = function (_EventEmitter) {
       }
 
       this.axios.get('/vexapi/logout').then(function () {
-        _this16.axios = defaultAxios();
+        _this18.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(null, true);
       }).catch(function (err) {
-        _this16.axios = defaultAxios();
+        _this18.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(err);

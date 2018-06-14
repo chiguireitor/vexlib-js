@@ -5,8 +5,7 @@
   "main": "index.bundle.js",
   "repository": "ssh://git@192.168.3.6:10022/vex/vexlib-js.git",
   "author": "John Villar <johnvillar@contimita.com>",
-  "license": "UNLICENSED",
-  "private": true,
+  "license": "MIT",
   "scripts": {
     "build": "babel -o index.bundle.js index.js util.js",
     "dev": "nodemon -w src --exec \"babel-node test.js --presets es2015,stage-0\""
