@@ -7,7 +7,7 @@
   "author": "John Villar <johnvillar@contimita.com>",
   "license": "MIT",
   "scripts": {
-    "build": "babel -o index.bundle.js index.js util.js",
+    "build": "babel -o index.bundle.js_pre index.js util.js && BUILD=`node buildHelper.js` envsubst < index.bundle.js_pre > index.bundle.js",
     "dev": "nodemon -w src --exec \"babel-node test.js --presets es2015,stage-0\""
   },
   "devDependencies": {

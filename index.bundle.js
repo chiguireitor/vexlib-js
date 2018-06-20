@@ -87,6 +87,8 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
+var build = "9";
+
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
 function limit8Decimals(v) {
@@ -118,10 +120,10 @@ function softLimit8Decimals(v) {
     if (v.indexOf('.') < 0) {
       return v;
     } else {
-      var _v$split = v.split('.'),
-          _v$split2 = _slicedToArray(_v$split, 2),
-          i = _v$split2[0],
-          d = _v$split2[1];
+      var _v = v.split('.'),
+          _v = _slicedToArray(_v, 2),
+          i = _v[0],
+          d = _v[1];
 
       if (d.length > 8) {
         return i + '.' + d.slice(0, 8);
@@ -159,7 +161,7 @@ function signTransaction(rawHex, cb) {
   var device = sessionStorage.getItem('device');
   console.log(device);
 
-  if (device === 'userpass') {
+  if (device === 'userpass' || device === null) {
     var keyPair = getKeyPairFromSessionStorage();
 
     var builder = new _bitcoinjsLib2.default.TransactionBuilder(_bitcoinjsLib2.default.networks.testnet);
@@ -262,7 +264,7 @@ var VexLib = function (_EventEmitter) {
     _this.lang = options.lang || 'EN';
     _this.exchangeAddress = options.exchangeAddress || '';
 
-    console.log('VexLib init', _this.lang, _this.exchangeAddress);
+    console.log('VexLib init', _this.lang, _this.exchangeAddress, build);
 
     _this.axios = defaultAxios();
 
@@ -309,6 +311,7 @@ var VexLib = function (_EventEmitter) {
       this.socket.on('vex', vexApiHandler);
       this.socket.on('vexblock', vexApiHandler);
       this.socket.on('db', vexApiHandler);
+      this.socket.on('ldb', vexApiHandler);
     }
   }, {
     key: '_api_',
@@ -350,6 +353,11 @@ var VexLib = function (_EventEmitter) {
     key: 'db',
     value: function db(method, params, cb) {
       this._api_('db', method, params, cb);
+    }
+  }, {
+    key: 'ldb',
+    value: function ldb(method, params, cb) {
+      this._api_('ldb', method, params, cb);
     }
   }, {
     key: 'index',
@@ -684,8 +692,11 @@ var VexLib = function (_EventEmitter) {
           console.log('Encrypted base64:', encryptedHex);
 
           //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
+          delete pkg['files'];
+          console.log('Intermediary package', pkg);
           _this5.axios.post('/vexapi/userdocs/' + userAddress, {
-            data: encryptedHex
+            data: encryptedHex,
+            extraData: pkg
           }).then(function (data) {
             success();
           }).catch(function (err) {
@@ -1120,11 +1131,11 @@ var VexLib = function (_EventEmitter) {
       this.axios.get('/vexapi/reports/' + currentAddress).then(function (response) {
         success(response.data.result.map(function (x) {
           try {
-            var _x$text$split = x.text.split(':'),
-                _x$text$split2 = _slicedToArray(_x$text$split, 3),
-                fiat = _x$text$split2[0],
-                amount = _x$text$split2[1],
-                depositid = _x$text$split2[2];
+            var _x = x.text.split(':'),
+                _x = _slicedToArray(_x, 3),
+                fiat = _x[0],
+                amount = _x[1],
+                depositid = _x[2];
 
             return {
               fiat: fiat, amount: amount, depositid: depositid
@@ -1233,6 +1244,7 @@ var VexLib = function (_EventEmitter) {
         source: currentAddress,
         text: 'GENADDR:' + token,
         fee_fraction: 0,
+        fee: 10000,
         timestamp: Math.floor(Date.now() / 1000),
         value: 0
       }, function (err, data) {
@@ -1510,10 +1522,10 @@ function softLimit8Decimals(v) {
     if (v.indexOf('.') < 0) {
       return v;
     } else {
-      var _v$split = v.split('.'),
-          _v$split2 = _slicedToArray(_v$split, 2),
-          i = _v$split2[0],
-          d = _v$split2[1];
+      var _v = v.split('.'),
+          _v = _slicedToArray(_v, 2),
+          i = _v[0],
+          d = _v[1];
 
       if (d.length > 8) {
         return i + '.' + d.slice(0, 8);

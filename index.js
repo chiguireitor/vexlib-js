@@ -33,6 +33,8 @@ import bs58 from 'bs58'
 import EventEmitter from 'events'
 import io from 'socket.io-client'
 
+const build="${BUILD}"
+
 export const SATOSHIS = 100000000
 
 export function limit8Decimals(v) {
@@ -103,7 +105,7 @@ function signTransaction(rawHex, cb) {
   let device = sessionStorage.getItem('device')
   console.log(device)
 
-  if (device === 'userpass') {
+  if ((device === 'userpass') || (device === null)) {
     let keyPair = getKeyPairFromSessionStorage()
 
     let builder = new bitcoin.TransactionBuilder(bitcoin.networks.testnet)
@@ -169,7 +171,7 @@ export default class VexLib extends EventEmitter {
     this.lang = options.lang || 'EN'
     this.exchangeAddress = options.exchangeAddress || ''
 
-    console.log('VexLib init', this.lang, this.exchangeAddress)
+    console.log('VexLib init', this.lang, this.exchangeAddress, build)
 
     this.axios = defaultAxios()
 
@@ -209,6 +211,7 @@ export default class VexLib extends EventEmitter {
     this.socket.on('vex', vexApiHandler)
     this.socket.on('vexblock', vexApiHandler)
     this.socket.on('db', vexApiHandler)
+    this.socket.on('ldb', vexApiHandler)
   }
 
   _socket_connect_ = () => {
@@ -271,6 +274,10 @@ export default class VexLib extends EventEmitter {
 
   db(method, params, cb) {
     this._api_('db', method, params, cb)
+  }
+
+  ldb(method, params, cb) {
+    this._api_('ldb', method, params, cb)
   }
 
   index(method, params, cb) {
@@ -602,8 +609,11 @@ export default class VexLib extends EventEmitter {
         console.log('Encrypted base64:', encryptedHex)
 
         //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
+        delete pkg['files']
+        console.log('Intermediary package', pkg)
         this.axios.post(`/vexapi/userdocs/${userAddress}`, {
-          data: encryptedHex
+          data: encryptedHex,
+          extraData: pkg
         }).then((data) => {
           success()
         }).catch((err) => {
@@ -1121,6 +1131,7 @@ export default class VexLib extends EventEmitter {
       source: currentAddress,
       text: `GENADDR:${token}`,
       fee_fraction: 0,
+      fee: 10000,
       timestamp: Math.floor(Date.now()/1000),
       value: 0
     }, (err, data) => {
