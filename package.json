@@ -1,6 +1,6 @@
 {
   "name": "vexlib-js",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Biblioteca para interactuar con vex",
   "main": "index.bundle.js",
   "repository": "ssh://git@192.168.3.6:10022/vex/vexlib-js.git",
@@ -12,25 +12,26 @@
   },
   "devDependencies": {
     "babel-cli": "^6.26.0",
-    "babel-core": "^6.26.0",
+    "babel-core": "^6.26.3",
     "babel-plugin-transform-class-properties": "^6.24.1",
     "babel-plugin-transform-object-rest-spread": "^6.26.0",
-    "babel-preset-env": "^1.6.1",
+    "babel-preset-env": "^1.7.0",
     "babel-preset-es2015": "^6.24.1",
     "babel-preset-stage-0": "^6.24.1",
-    "nodemon": "^1.17.4",
+    "nodemon": "^1.17.5",
     "rollup": "^0.57.1",
-    "rollup-plugin-babel": "^3.0.3"
+    "rollup-plugin-babel": "^3.0.4"
   },
   "dependencies": {
-    "aes-js": "^3.1.0",
+    "aes-js": "^3.1.1",
     "axios": "^0.18.0",
     "bigi": "^1.4.2",
     "bip39": "^2.5.0",
     "bitcoinjs-lib": "^3.3.2",
     "bitcoinjs-message": "^2.0.0",
     "bs58": "^4.0.1",
-    "hash.js": "^1.1.3",
-    "socket.io-client": "^2.1.0"
+    "hash.js": "^1.1.4",
+    "socket.io-client": "^2.1.1",
+    "wrappy": "^1.0.2"
   }
 }

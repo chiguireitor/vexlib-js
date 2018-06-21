@@ -810,6 +810,8 @@ export default class VexLib extends EventEmitter {
         this.emit('need-login')
       }
 
+      console.log(err)
+
       cb('error-creating-report')
     }
 
@@ -825,13 +827,13 @@ export default class VexLib extends EventEmitter {
         signTransaction(response.data.result, (signed) => {
           return this.axios.post('/vexapi/sendtx', {
             rawtx: signed
+          }).then((response) => {
+            success(response.data.result)
           })
         })
       } else {
         fail()
       }
-    }).then((response) => {
-      success(response.data.result)
     }).catch((err) => {
       fail(err)
     })
