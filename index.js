@@ -32,6 +32,7 @@ import bigi from 'bigi'
 import bs58 from 'bs58'
 import EventEmitter from 'events'
 import io from 'socket.io-client'
+import checkIp from 'check-ip'
 
 const build="${BUILD}"
 
@@ -78,7 +79,7 @@ export function softLimit8Decimals(v) {
   }
 }
 
-var baseUrl = (window.location.hostname === 'localhost')?'http://localhost:8085':window.location.origin
+var baseUrl = ((window.location.hostname === 'localhost') || (checkIp(window.location.hostname).isRfc1918))?`http://${window.location.hostname}:8085`:window.location.origin
 
 function defaultAxios(ob) {
   if (!ob) {
@@ -795,7 +796,7 @@ export default class VexLib extends EventEmitter {
     })
   }
 
-  reportFiatDeposit(getToken, getAmount, depositId, cb) {
+  reportFiatDeposit(getToken, getAmount, depositId, files, cb) {
     let currentAddress = sessionStorage.getItem('currentAddress')
 
     if (!currentAddress) {

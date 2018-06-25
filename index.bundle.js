@@ -79,6 +79,10 @@ var _socket = require('socket.io-client');
 
 var _socket2 = _interopRequireDefault(_socket);
 
+var _checkIp = require('check-ip');
+
+var _checkIp2 = _interopRequireDefault(_checkIp);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -87,7 +91,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "12";
+var build = "15";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -134,7 +138,7 @@ function softLimit8Decimals(v) {
   }
 }
 
-var baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:8085' : window.location.origin;
+var baseUrl = window.location.hostname === 'localhost' || (0, _checkIp2.default)(window.location.hostname).isRfc1918 ? 'http://' + window.location.hostname + ':8085' : window.location.origin;
 
 function defaultAxios(ob) {
   if (!ob) {
@@ -888,7 +892,7 @@ var VexLib = function (_EventEmitter) {
     }
   }, {
     key: 'reportFiatDeposit',
-    value: function reportFiatDeposit(getToken, getAmount, depositId, cb) {
+    value: function reportFiatDeposit(getToken, getAmount, depositId, files, cb) {
       var _this9 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
