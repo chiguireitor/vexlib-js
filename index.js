@@ -189,6 +189,7 @@ export default class VexLib extends EventEmitter {
 
     this.socket.on('connect', this._socket_connect_)
     this.socket.on('new block', this._socket_newblock_)
+    this.socket.on('new dbupdate', this._socket_newdbupdate_)
     this.socket.on('updates', this._socket_updates_)
     this.socket.on('close', this._socket_close_)
     this.socket.on('error', (err) => console.log('Socket error:', err))
@@ -213,6 +214,7 @@ export default class VexLib extends EventEmitter {
     this.socket.on('vexblock', vexApiHandler)
     this.socket.on('db', vexApiHandler)
     this.socket.on('ldb', vexApiHandler)
+    this.socket.on('banks', vexApiHandler)
   }
 
   _socket_connect_ = () => {
@@ -237,6 +239,11 @@ export default class VexLib extends EventEmitter {
 
   _socket_newblock_ = (hash) => {
     this.emit('new block', hash)
+    //this.vex('')
+  }
+
+  _socket_newdbupdate_ = () => {
+    this.emit('new dbupdate')
     //this.vex('')
   }
 
@@ -283,6 +290,10 @@ export default class VexLib extends EventEmitter {
 
   index(method, params, cb) {
     this._api_('index', method, params, cb)
+  }
+
+  banks(method, params, cb) {
+    this._api_('banks', method, params, cb)
   }
 
   signAndBroadcastTransaction(rawtx, cb) {
@@ -425,6 +436,21 @@ export default class VexLib extends EventEmitter {
     })
   }
 
+  getBlockTimes(data, cb) {
+    this.axios.post(`/vexapi/blocktimes`, {
+      data: data.map(x => x.block)
+    }).then((btimes) => {
+      let mapping = {}
+      btimes.data.forEach(x => {
+        mapping[x.block_index] = x.time
+      })
+      cb(data.map( x => ({ time: mapping[x.block] * 1000, ...x}) ))
+    }).catch((err) => {
+      console.log(err)
+      cb(data)
+    })
+  }
+
   _recentOrders_(give, get, filters, cb) {
     this.vex('get_orders', {
       filters,
@@ -467,7 +493,9 @@ export default class VexLib extends EventEmitter {
           return arr
         }, [])
 
-        cb(null, orders)
+        this.getBlockTimes(orders, (data) => {
+          cb(null, data)
+        })
       }
     })
   }
@@ -605,13 +633,10 @@ export default class VexLib extends EventEmitter {
         let textBytes = aesjs.utils.utf8.toBytes(msg)
         let encryptedBytes = aesCtr.encrypt(textBytes)
         let intermediaryHex = aesjs.utils.hex.fromBytes(encryptedBytes)
-        console.log('Encrypted intermediary size:', intermediaryHex.length/2)
         let encryptedHex = Buffer.from(intermediaryHex, 'hex').toString('base64')
-        console.log('Encrypted base64:', encryptedHex)
 
         //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
         delete pkg['files']
-        console.log('Intermediary package', pkg)
         this.axios.post(`/vexapi/userdocs/${userAddress}`, {
           data: encryptedHex,
           extraData: pkg
@@ -796,7 +821,7 @@ export default class VexLib extends EventEmitter {
     })
   }
 
-  reportFiatDeposit(getToken, getAmount, depositId, files, cb) {
+  reportFiatDeposit(getToken, getAmount, depositId, bankName, files, cb) {
     let currentAddress = sessionStorage.getItem('currentAddress')
 
     if (!currentAddress) {
@@ -821,7 +846,7 @@ export default class VexLib extends EventEmitter {
     }
 
     this.axios.post('/vexapi/report', {
-      "text": `${getToken}:${getAmount}:${depositId}`,
+      "text": `${getToken}:${getAmount}:${depositId}:${bankName}`,
       "source": currentAddress
     }).then((response) => {
       if (response.status === 200) {
@@ -829,7 +854,33 @@ export default class VexLib extends EventEmitter {
           return this.axios.post('/vexapi/sendtx', {
             rawtx: signed
           }).then((response) => {
-            success(response.data.result)
+            let txid = response.data.result
+
+            this.axios.get(`/vexapi/sesskey/${currentAddress}`).then((response) => {
+              if (response.status === 200) {
+                let key = Buffer.from(response.data.key, 'hex')
+                let aesCtr = new aesjs.ModeOfOperation.ctr(key, new aesjs.Counter(5))
+                let msg = JSON.stringify(files)
+                let textBytes = aesjs.utils.utf8.toBytes(msg)
+                let encryptedBytes = aesCtr.encrypt(textBytes)
+                let intermediaryHex = aesjs.utils.hex.fromBytes(encryptedBytes)
+                let encryptedHex = Buffer.from(intermediaryHex, 'hex').toString('base64')
+
+                //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
+                this.axios.post(`/vexapi/deprep/${currentAddress}`, {
+                  data: encryptedHex,
+                  txid
+                }).then((data) => {
+                  success(txid)
+                }).catch((err) => {
+                  fail(err)
+                })
+              } else {
+                fail()
+              }
+            }).catch((err) => {
+              fail(err)
+            })
           })
         })
       } else {
@@ -1345,6 +1396,65 @@ export default class VexLib extends EventEmitter {
         cb(err)
       } else {
         cb(null, data.result)
+      }
+    })
+  }
+
+  getFees(give, get, cb) {
+    let value
+
+    if (give === '*') {
+      value = 'options fee:%:%'
+    } else {
+      value = `options fee:%:%:${give}:${get}`.toLowerCase()
+    }
+
+    this.vex('get_broadcasts', {
+      filters: [
+        {
+          field: 'text',
+          op: 'LIKE',
+          value
+        },
+        {
+          field: 'source',
+          op: '==',
+          value: this.exchangeAddress
+        }
+      ]
+    }, (err, data) => {
+      if (err) {
+        cb(err)
+      } else {
+        if (data.result.length > 0) {
+          let text = data.result.pop().text
+          let structure = /options fee:(0\.\d+):(0\.\d+):?([a-zA-Z]{4,12})?:?([a-zA-Z]{4,12})?/.exec(text)
+
+          if (structure.length !== 5) {
+            cb('no-fee')
+          } else {
+            cb(null, {
+              feeMaker: structure[1],
+              feeTaker: structure[2]
+            })
+          }
+        } else {
+          cb('no-fee')
+        }
+      }
+    })
+  }
+
+  setFee(giveAsset, getAsset, feeMaker, feeTaker, cb) {
+    this.db('set_fee', {
+      giveAsset, getAsset,
+      feeMaker, feeTaker
+    }, (err, data) => {
+      if (err) {
+        console.log('SETFEE', err)
+        cb(err)
+      } else {
+        cb(null, data)
       }
     })
   }
