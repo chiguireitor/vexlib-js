@@ -85,6 +85,8 @@ var _checkIp = require('check-ip');
 
 var _checkIp2 = _interopRequireDefault(_checkIp);
 
+var _bignumber = require('bignumber.js');
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -93,7 +95,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "38";
+var build = "42";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -418,17 +420,18 @@ var VexLib = function (_EventEmitter) {
         if (err) {
           cb(err);
         } else {
+          console.log(data.result);
           var balances = data.result.reduce(function (p, x) {
             if (!(x.asset in p)) {
-              p[x.asset] = x.quantity;
+              p[x.asset] = new _bignumber.BigNumber(x.quantity);
             } else {
-              p[x.asset] += x.quantity;
+              p[x.asset] = p[x.asset].plus(new _bignumber.BigNumber(x.quantity));
             }
             return p;
           }, {});
 
           for (var asset in balances) {
-            balances[asset] /= 100000000;
+            balances[asset] = balances[asset].dividedBy(100000000).toNumber();
           }
           cb(null, balances);
         }
@@ -603,8 +606,12 @@ var VexLib = function (_EventEmitter) {
     }
   }, {
     key: 'getMyRecentOrders',
-    value: function getMyRecentOrders(give, get, cb) {
-      var currentAddress = sessionStorage.getItem('currentAddress');
+    value: function getMyRecentOrders(give, get, addr, cb) {
+      if (typeof addr === 'function' && !cb) {
+        cb = addr;
+        addr = null;
+      }
+      var currentAddress = addr || sessionStorage.getItem('currentAddress');
 
       if (!currentAddress) {
         cb('login-first');

@@ -33,6 +33,7 @@ import bs58 from 'bs58'
 import EventEmitter from 'events'
 import io from 'socket.io-client'
 import checkIp from 'check-ip'
+import {BigNumber} from 'bignumber.js'
 
 const build="${BUILD}"
 
@@ -329,17 +330,18 @@ export default class VexLib extends EventEmitter {
       if (err) {
         cb(err)
       } else {
+        console.log(data.result)
         let balances = data.result.reduce((p, x) => {
           if (!(x.asset in p)) {
-            p[x.asset] = x.quantity
+            p[x.asset] = new BigNumber(x.quantity)
           } else {
-            p[x.asset] += x.quantity
+            p[x.asset] = p[x.asset].plus(new BigNumber(x.quantity))
           }
           return p
         }, {})
 
         for (let asset in balances) {
-          balances[asset] /= 100000000
+          balances[asset] = balances[asset].dividedBy(100000000).toNumber()
         }
         cb(null, balances)
       }
@@ -504,8 +506,12 @@ export default class VexLib extends EventEmitter {
     this._recentOrders_(give, get, [], cb)
   }
 
-  getMyRecentOrders(give, get, cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+  getMyRecentOrders(give, get, addr, cb) {
+    if ((typeof(addr) === 'function') && !cb) {
+      cb = addr
+      addr = null
+    }
+    let currentAddress = addr || sessionStorage.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
