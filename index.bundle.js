@@ -93,7 +93,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "35";
+var build = "38";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -625,7 +625,6 @@ var VexLib = function (_EventEmitter) {
         asset1: give,
         asset2: get
       }, function (err, data) {
-        console.log('getTradeHistory', data);
         if (err) {
           cb(err);
         } else if (data.result) {
@@ -673,6 +672,7 @@ var VexLib = function (_EventEmitter) {
 
           dcb(null, ob);
         } catch (e) {
+          console.log('Bad local password');
           dcb(e);
         }
       };
@@ -1218,8 +1218,13 @@ var VexLib = function (_EventEmitter) {
     }
   }, {
     key: 'getWithdraws',
-    value: function getWithdraws(cb) {
-      var currentAddress = sessionStorage.getItem('currentAddress');
+    value: function getWithdraws(addr, cb) {
+      if (!cb && typeof addr === 'function') {
+        cb = addr;
+        addr = null;
+      }
+
+      var currentAddress = addr || sessionStorage.getItem('currentAddress');
 
       if (!currentAddress) {
         cb('login-first');
@@ -1248,10 +1253,15 @@ var VexLib = function (_EventEmitter) {
     }
   }, {
     key: 'getDeposits',
-    value: function getDeposits(cb) {
+    value: function getDeposits(addr, cb) {
       var _this14 = this;
 
-      var currentAddress = sessionStorage.getItem('currentAddress');
+      if (!cb && typeof addr === 'function') {
+        cb = addr;
+        addr = null;
+      }
+
+      var currentAddress = addr || sessionStorage.getItem('currentAddress');
 
       if (!currentAddress) {
         cb('login-first');
@@ -1493,6 +1503,7 @@ var VexLib = function (_EventEmitter) {
           if (err) {
             cb(err);
           } else {
+            console.log('Attempting local only login');
             _this18.localLogin(null, cb);
           }
         });

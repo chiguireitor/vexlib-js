@@ -570,6 +570,7 @@ export default class VexLib extends EventEmitter {
 
         dcb(null, ob)
       } catch(e) {
+        console.log('Bad local password')
         dcb(e)
       }
     }
@@ -1097,8 +1098,13 @@ export default class VexLib extends EventEmitter {
   }
 
 
-  getWithdraws(cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+  getWithdraws(addr, cb) {
+    if (!cb && typeof(addr) === 'function') {
+      cb = addr
+      addr = null
+    }
+
+    let currentAddress = addr || sessionStorage.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -1126,8 +1132,13 @@ export default class VexLib extends EventEmitter {
     })
   }
 
-  getDeposits(cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+  getDeposits(addr, cb) {
+    if (!cb && typeof(addr) === 'function') {
+      cb = addr
+      addr = null
+    }
+
+    let currentAddress = addr || sessionStorage.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -1360,6 +1371,7 @@ export default class VexLib extends EventEmitter {
         if (err) {
           cb(err)
         } else {
+          console.log('Attempting local only login')
           this.localLogin(null, cb)
         }
       })
