@@ -606,8 +606,8 @@ export default class VexLib extends EventEmitter {
     let itemKey = `_user_data_${email}_`
     let userData = localStorage.getItem(itemKey)
 
-    let fail = (msg) => {
-      cb(msg || 'no-user-found')
+    let fail = (msg, data) => {
+      cb(msg || 'no-user-found', data)
     }
 
     let success = ({address, mnemonic}) => {
@@ -1440,7 +1440,12 @@ export default class VexLib extends EventEmitter {
     } else {
       this.getUser(email, password, (err, userData) => {
         if (err) {
-          cb(err)
+          if (err === 'bad-data-or-bad-password') {
+            console.log('Attempting local only login')
+            this.localLogin(null, cb)
+          } else {
+            cb(err)
+          }
         } else {
           console.log('Attempting local only login')
           this.localLogin(null, cb)

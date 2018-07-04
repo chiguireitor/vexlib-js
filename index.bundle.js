@@ -95,7 +95,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "97";
+var build = "98";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -711,8 +711,8 @@ var VexLib = function (_EventEmitter) {
       var itemKey = '_user_data_' + email + '_';
       var userData = localStorage.getItem(itemKey);
 
-      var fail = function fail(msg) {
-        cb(msg || 'no-user-found');
+      var fail = function fail(msg, data) {
+        cb(msg || 'no-user-found', data);
       };
 
       var success = function success(_ref) {
@@ -1578,7 +1578,12 @@ var VexLib = function (_EventEmitter) {
       } else {
         this.getUser(email, password, function (err, userData) {
           if (err) {
-            cb(err);
+            if (err === 'bad-data-or-bad-password') {
+              console.log('Attempting local only login');
+              _this20.localLogin(null, cb);
+            } else {
+              cb(err);
+            }
           } else {
             console.log('Attempting local only login');
             _this20.localLogin(null, cb);
