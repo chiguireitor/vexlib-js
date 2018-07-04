@@ -37,8 +37,8 @@ var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = [
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           **/
 
 
-exports.limit8Decimals = limit8Decimals;
-exports.sanitizeDecimals = sanitizeDecimals;
+exports.limitNDecimals = limitNDecimals;
+exports.sanitizeNDecimals = sanitizeNDecimals;
 exports.softLimit8Decimals = softLimit8Decimals;
 
 var _axios = require('axios');
@@ -95,28 +95,45 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "42";
+var build = "97";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
-function limit8Decimals(v) {
+var divideLimited = function divideLimited(val, divisor) {
+  return Math.floor(val) / divisor;
+};
+
+/*export function limit8Decimals(v) {
   if (v.length > 8) {
-    return v.slice(0, 8);
+    return v.slice(0, 8)
   } else if (v.length === 8) {
+    return v
+  } else {
+    return v + new Array(8 - v.length).fill(0).join('')
+  }
+}*/
+
+function limitNDecimals(v, n) {
+  if (v.length > n) {
+    return v.slice(0, n);
+  } else if (v.length === n) {
     return v;
   } else {
-    return v + new Array(8 - v.length).fill(0).join('');
+    return v + new Array(n - v.length).fill(0).join('');
   }
 }
 
-function sanitizeDecimals(n) {
+function sanitizeNDecimals(n, divisor) {
+  var decimals = divisor.toString().length - 1;
   var v = n + '';
   var num = v.split('.');
 
+  console.log('Sanitizing', v, ' to ', decimals, 'decimal places');
+
   if (num.length > 1) {
-    return num[0] + '.' + limit8Decimals(num[1]);
+    return num[0] + '.' + limitNDecimals(num[1], decimals);
   } else {
-    return num[0] + '.00000000';
+    return num[0] + '.' + Array(decimals).fill(0).join('');
   }
 }
 
@@ -283,12 +300,24 @@ var VexLib = function (_EventEmitter) {
 
     _this.lastVexSeq = 0;
     _this.cbList = {};
+    _this.fiatTokensDivisor = {
+      VEFT: 100
+    };
 
     _this._start_socket_();
     return _this;
   }
 
   _createClass(VexLib, [{
+    key: 'tokenDivisor',
+    value: function tokenDivisor(tkn) {
+      if (tkn in this.fiatTokensDivisor) {
+        return this.fiatTokensDivisor[tkn];
+      } else {
+        return SATOSHIS;
+      }
+    }
+  }, {
     key: '_start_socket_',
     value: function _start_socket_() {
       var _this2 = this;
@@ -402,6 +431,8 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getBalances',
     value: function getBalances(cb) {
+      var _this5 = this;
+
       var currentAddress = sessionStorage.getItem('currentAddress');
 
       if (!currentAddress) {
@@ -431,7 +462,11 @@ var VexLib = function (_EventEmitter) {
           }, {});
 
           for (var asset in balances) {
-            balances[asset] = balances[asset].dividedBy(100000000).toNumber();
+            var _divisor = SATOSHIS;
+            if (asset in _this5.fiatTokensDivisor) {
+              _divisor = _this5.fiatTokensDivisor[asset];
+            }
+            balances[asset] = balances[asset].dividedBy(_divisor).toNumber();
           }
           cb(null, balances);
         }
@@ -462,6 +497,8 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getOrderBook',
     value: function getOrderBook(give, get, isBid, cb) {
+      var _this6 = this;
+
       this.vex('get_orders', {
         filters: [{
           field: 'give_asset',
@@ -487,13 +524,23 @@ var VexLib = function (_EventEmitter) {
           var sumGive = 0;
           var sumGet = 0;
 
+          var giveIsFiat = give in _this6.fiatTokensDivisor;
+          var getIsFiat = get in _this6.fiatTokensDivisor;
+
+          var giveDivisor = giveIsFiat ? _this6.fiatTokensDivisor[give] : SATOSHIS;
+          var getDivisor = getIsFiat ? _this6.fiatTokensDivisor[get] : SATOSHIS;
+
+          console.log(isBid, giveIsFiat, getIsFiat, giveDivisor, getDivisor, give, get);
+
           var res = data.result.map(function (x) {
             return {
               rawGive: isBid ? x.give_remaining : x.get_remaining,
               rawGet: isBid ? x.get_remaining : x.give_remaining,
-              give: (isBid ? x.give_remaining : x.get_remaining) / SATOSHIS,
-              get: (isBid ? x.get_remaining : x.give_remaining) / SATOSHIS,
-              price: isBid ? x.get_quantity / x.give_quantity : x.give_quantity / x.get_quantity
+              give: isBid ? divideLimited(x.give_remaining, giveDivisor) : divideLimited(x.get_remaining, getDivisor),
+              get: isBid ? divideLimited(x.get_remaining, getDivisor) : divideLimited(x.give_remaining, giveDivisor),
+              //price: isBid?(x.get_quantity / x.give_quantity * getDivisor / giveDivisor):(x.give_quantity / x.get_quantity * getDivisor / giveDivisor)
+              price: isBid ? x.get_quantity / getDivisor / (x.give_quantity / giveDivisor) : x.give_quantity / x.get_quantity * getDivisor / giveDivisor
+              //price: isBid?(x.get_quantity / x.give_quantity):(x.give_quantity / x.get_quantity)
             };
           }).sort(function (a, b) {
             return isBid ? a.price - b.price : b.price - a.price;
@@ -501,23 +548,26 @@ var VexLib = function (_EventEmitter) {
             sumGive += isBid ? itm.give : itm.get;
             sumGet += isBid ? itm.get : itm.give;
 
-            itm.sumGive = sanitizeDecimals(sumGive);
-            itm.sumGet = sanitizeDecimals(sumGet);
+            itm.sumGive = sumGive;
+            itm.sumGet = sumGet;
 
             var lastItem = arr[arr.length - 1];
 
             if (lastItem && lastItem.price == itm.price) {
-              lastItem.give += itm.give;
-              lastItem.get += itm.get;
+              lastItem.sumGive = sumGive;
+              lastItem.sumGet = sumGet;
             } else {
               arr.push(itm);
             }
             return arr;
           }, []).map(function (itm) {
-            itm.give = sanitizeDecimals(itm.give);
-            itm.get = sanitizeDecimals(itm.get);
-            itm.sumGive = sanitizeDecimals(itm.sumGive);
-            itm.sumGet = sanitizeDecimals(itm.sumGive);
+            //console.log(giveDivisor, getDivisor, itm)
+            console.log('>>>>', itm, isBid, giveDivisor, getDivisor);
+            itm.give = sanitizeNDecimals(itm.give, isBid ? giveDivisor : getDivisor);
+            itm.get = sanitizeNDecimals(itm.get, isBid ? getDivisor : giveDivisor);
+            itm.sumGive = sanitizeNDecimals(itm.sumGive, isBid ? giveDivisor : getDivisor);
+            itm.sumGet = sanitizeNDecimals(itm.sumGive, isBid ? getDivisor : giveDivisor);
+            console.log('<<<<', itm);
             return itm;
           });
           cb(null, { giveAsset: give, getAsset: get, book: res });
@@ -547,7 +597,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: '_recentOrders_',
     value: function _recentOrders_(give, get, filters, cb) {
-      var _this5 = this;
+      var _this7 = this;
 
       this.vex('get_orders', {
         filters: filters,
@@ -562,14 +612,21 @@ var VexLib = function (_EventEmitter) {
                 price = void 0,
                 giq = void 0,
                 geq = void 0;
+
+            var giveIsFiat = itm.give_asset in _this7.fiatTokensDivisor;
+            var getIsFiat = itm.get_asset in _this7.fiatTokensDivisor;
+
+            var giveDivisor = giveIsFiat ? _this7.fiatTokensDivisor[itm.give_asset] : SATOSHIS;
+            var getDivisor = getIsFiat ? _this7.fiatTokensDivisor[itm.get_asset] : SATOSHIS;
+
             if (itm.give_asset === give && itm.get_asset === get) {
               type = 'buy';
-              price = itm.get_quantity / itm.give_quantity;
+              price = itm.get_quantity / getDivisor / (itm.give_quantity / giveDivisor);
               giq = itm.give_quantity;
               geq = itm.get_quantity;
             } else if (itm.give_asset === get && itm.get_asset === give) {
               type = 'sell';
-              price = itm.give_quantity / itm.get_quantity;
+              price = itm.give_quantity / giveDivisor / (itm.get_quantity / getDivisor);
               giq = itm.get_quantity;
               geq = itm.give_quantity;
             } else {
@@ -581,8 +638,8 @@ var VexLib = function (_EventEmitter) {
               status: itm.status,
               block: itm.block_index,
               price: price,
-              qty: giq / SATOSHIS,
-              total: geq / SATOSHIS,
+              qty: divideLimited(giq, getDivisor),
+              total: divideLimited(geq, giveDivisor),
               hash: itm.tx_hash
             };
           }).reduce(function (arr, itm) {
@@ -593,7 +650,7 @@ var VexLib = function (_EventEmitter) {
             return arr;
           }, []);
 
-          _this5.getBlockTimes(orders, function (data) {
+          _this7.getBlockTimes(orders, function (data) {
             cb(null, data);
           });
         }
@@ -719,7 +776,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'sendRegisterPkg',
     value: function sendRegisterPkg(userAddress, pkg, cb) {
-      var _this6 = this;
+      var _this8 = this;
 
       var fail = function fail(err) {
         cb(err || 'bad-user-data');
@@ -741,7 +798,7 @@ var VexLib = function (_EventEmitter) {
 
           //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
           delete pkg['files'];
-          _this6.axios.post('/vexapi/userdocs/' + userAddress, {
+          _this8.axios.post('/vexapi/userdocs/' + userAddress, {
             data: encryptedHex,
             extraData: pkg
           }).then(function (data) {
@@ -759,7 +816,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'createUser',
     value: function createUser(email, password, uiLang, cb) {
-      var _this7 = this;
+      var _this9 = this;
 
       var externalToken = null;
 
@@ -797,7 +854,7 @@ var VexLib = function (_EventEmitter) {
           }
         };
 
-        _this7.axios.post('/vexapi/user', {
+        _this9.axios.post('/vexapi/user', {
           userid: husr,
           email: email,
           cryptdata: encryptedHex,
@@ -824,7 +881,13 @@ var VexLib = function (_EventEmitter) {
           }
         });
       } else {
-        var mnemonic = _bip2.default.generateMnemonic(null, null, _bip2.default.wordlists[uiLang]);
+        var mnemonic = void 0;
+
+        mnemonic = sessionStorage.getItem('currentMnemonic');
+        if (!mnemonic) {
+          mnemonic = _bip2.default.generateMnemonic(null, null, _bip2.default.wordlists[uiLang]);
+        }
+
         var keyPair = VexLib.keyPairFromMnemonic(mnemonic);
         var address = keyPair.getAddress();
 
@@ -843,7 +906,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'createOrder',
     value: function createOrder(giveAsset, giveAmount, getAsset, getAmount, cb) {
-      var _this8 = this;
+      var _this10 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -855,7 +918,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this8.emit('need-login');
+          _this10.emit('need-login');
         }
 
         cb(err || 'error-creating-order');
@@ -875,7 +938,7 @@ var VexLib = function (_EventEmitter) {
         if (response.status === 200) {
           console.log(response.data);
           signTransaction(response.data.result, function (signed) {
-            _this8.axios.post('/vexapi/sendtx', {
+            _this10.axios.post('/vexapi/sendtx', {
               rawtx: signed
             }).then(function (response) {
               success(response.data.result);
@@ -891,7 +954,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'cancelOrder',
     value: function cancelOrder(txid, cb) {
-      var _this9 = this;
+      var _this11 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -904,7 +967,7 @@ var VexLib = function (_EventEmitter) {
       var fail = function fail(err) {
 
         if (err.response && err.response.status === 401) {
-          _this9.emit('need-login');
+          _this11.emit('need-login');
         }
 
         cb('error-creating-cancel');
@@ -920,7 +983,7 @@ var VexLib = function (_EventEmitter) {
       }).then(function (response) {
         if (response.status === 200) {
           signTransaction(response.data.result, function (signed) {
-            return _this9.axios.post('/vexapi/sendtx', {
+            return _this11.axios.post('/vexapi/sendtx', {
               rawtx: signed
             });
           });
@@ -936,7 +999,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'reportFiatDeposit',
     value: function reportFiatDeposit(getToken, getAmount, depositId, bankName, files, cb) {
-      var _this10 = this;
+      var _this12 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -949,7 +1012,7 @@ var VexLib = function (_EventEmitter) {
       var fail = function fail(err) {
 
         if (err.response && err.response.status === 401) {
-          _this10.emit('need-login');
+          _this12.emit('need-login');
         }
 
         console.log(err);
@@ -967,12 +1030,12 @@ var VexLib = function (_EventEmitter) {
       }).then(function (response) {
         if (response.status === 200) {
           signTransaction(response.data.result, function (signed) {
-            return _this10.axios.post('/vexapi/sendtx', {
+            return _this12.axios.post('/vexapi/sendtx', {
               rawtx: signed
             }).then(function (response) {
               var txid = response.data.result;
 
-              _this10.axios.get('/vexapi/sesskey/' + currentAddress).then(function (response) {
+              _this12.axios.get('/vexapi/sesskey/' + currentAddress).then(function (response) {
                 if (response.status === 200) {
                   var key = Buffer.from(response.data.key, 'hex');
                   var aesCtr = new _aesJs2.default.ModeOfOperation.ctr(key, new _aesJs2.default.Counter(5));
@@ -983,7 +1046,7 @@ var VexLib = function (_EventEmitter) {
                   var encryptedHex = Buffer.from(intermediaryHex, 'hex').toString('base64');
 
                   //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
-                  _this10.axios.post('/vexapi/deprep/' + currentAddress, {
+                  _this12.axios.post('/vexapi/deprep/' + currentAddress, {
                     data: encryptedHex,
                     txid: txid
                   }).then(function (data) {
@@ -1009,7 +1072,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateWithdrawal',
     value: function generateWithdrawal(token, amount, address, info, cb) {
-      var _this11 = this;
+      var _this13 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1021,7 +1084,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this11.emit('need-login');
+          _this13.emit('need-login');
         }
 
         cb(err || 'error-generating-withdrawal');
@@ -1052,7 +1115,11 @@ var VexLib = function (_EventEmitter) {
         return;
       }
 
-      amount = Math.round(parseFloat(amount) * SATOSHIS);
+      var divisor = SATOSHIS;
+      if (token in this.fiatTokensDivisor) {
+        divisor = this.fiatTokensDivisor[token];
+      }
+      amount = Math.round(parseFloat(amount) * divisor);
 
       this.axios.post('/vexapi/withdraw', {
         "asset": token,
@@ -1066,7 +1133,7 @@ var VexLib = function (_EventEmitter) {
             fail(response.data.error);
           } else {
             signTransaction(response.data.result, function (signed) {
-              return _this11.axios.post('/vexapi/sendtx', {
+              return _this13.axios.post('/vexapi/sendtx', {
                 rawtx: signed
               });
             });
@@ -1083,7 +1150,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateCodeWithdrawal',
     value: function generateCodeWithdrawal(token, amount, code, cb) {
-      var _this12 = this;
+      var _this14 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1095,7 +1162,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this12.emit('need-login');
+          _this14.emit('need-login');
         }
 
         cb(err || 'error-generating-withdrawal');
@@ -1112,7 +1179,10 @@ var VexLib = function (_EventEmitter) {
         return;
       }
 
-      amount = Math.round(parseFloat(amount) * SATOSHIS);
+      if (token in this.fiatTokensDivisor) {
+        divisor = this.fiatTokensDivisor[token];
+      }
+      amount = Math.round(parseFloat(amount) * divisor);
 
       this.axios.post('/vexapi/withdraw', {
         "asset": token,
@@ -1126,7 +1196,7 @@ var VexLib = function (_EventEmitter) {
             fail(response.data.error);
           } else {
             signTransaction(response.data.result, function (signed) {
-              return _this12.axios.post('/vexapi/sendtx', {
+              return _this14.axios.post('/vexapi/sendtx', {
                 rawtx: signed
               });
             });
@@ -1143,7 +1213,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generatePaymentBill',
     value: function generatePaymentBill(token, quantity, concept, cb) {
-      var _this13 = this;
+      var _this15 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1155,7 +1225,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this13.emit('need-login');
+          _this15.emit('need-login');
         }
 
         cb('error-creating-report');
@@ -1171,7 +1241,7 @@ var VexLib = function (_EventEmitter) {
       }).then(function (response) {
         if (response.status === 200) {
           signTransaction(response.data.result, function (signed) {
-            return _this13.axios.post('/vexapi/sendtx', {
+            return _this15.axios.post('/vexapi/sendtx', {
               rawtx: signed
             });
           });
@@ -1261,7 +1331,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getDeposits',
     value: function getDeposits(addr, cb) {
-      var _this14 = this;
+      var _this16 = this;
 
       if (!cb && typeof addr === 'function') {
         cb = addr;
@@ -1279,7 +1349,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this14.emit('need-login');
+          _this16.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -1302,7 +1372,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateTokenDepositAddress',
     value: function generateTokenDepositAddress(token, cb) {
-      var _this15 = this;
+      var _this17 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1315,7 +1385,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this15.emit('need-login');
+          _this17.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -1337,7 +1407,7 @@ var VexLib = function (_EventEmitter) {
           fail(err);
         } else {
           signTransaction(data.result, function (signedTransaction) {
-            _this15.axios.post('/vexapi/sendtx', {
+            _this17.axios.post('/vexapi/sendtx', {
               rawtx: signedTransaction
             }).then(function (response) {
               success(response.data.result);
@@ -1351,7 +1421,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getTokenDepositAddress',
     value: function getTokenDepositAddress(token, cb) {
-      var _this16 = this;
+      var _this18 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1364,7 +1434,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this16.emit('need-login');
+          _this18.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -1427,7 +1497,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'localLogin',
     value: function localLogin(externalToken, cb) {
-      var _this17 = this;
+      var _this19 = this;
 
       if (typeof cb === 'undefined') {
         cb = externalToken;
@@ -1436,7 +1506,7 @@ var VexLib = function (_EventEmitter) {
 
       var sign = function sign(currentAddress) {
         sessionStorage.setItem('currentAddress', currentAddress);
-        _this17.getChallenge(function (err, challenge) {
+        _this19.getChallenge(function (err, challenge) {
           if (err) {
             cb(err);
           } else {
@@ -1445,14 +1515,14 @@ var VexLib = function (_EventEmitter) {
                 console.log(sigResult);
                 cb('couldnt-sign');
               } else {
-                _this17.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
+                _this19.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
                   if (response.data.success) {
-                    _this17.axios = defaultAxios({ headers: {
+                    _this19.axios = defaultAxios({ headers: {
                         'addr': currentAddress,
                         'token': response.data.accessToken
                       } });
 
-                    _this17.userEnabled(function (err, isEnabled) {
+                    _this19.userEnabled(function (err, isEnabled) {
                       if (err) {
                         cb(err);
                       } else {
@@ -1496,7 +1566,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'remoteLogin',
     value: function remoteLogin(email, password, externalToken, cb) {
-      var _this18 = this;
+      var _this20 = this;
 
       if (typeof cb === "undefined") {
         cb = externalToken;
@@ -1511,7 +1581,7 @@ var VexLib = function (_EventEmitter) {
             cb(err);
           } else {
             console.log('Attempting local only login');
-            _this18.localLogin(null, cb);
+            _this20.localLogin(null, cb);
           }
         });
       }
@@ -1519,7 +1589,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'remoteLogout',
     value: function remoteLogout(cb) {
-      var _this19 = this;
+      var _this21 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1530,12 +1600,12 @@ var VexLib = function (_EventEmitter) {
       }
 
       this.axios.get('/vexapi/logout').then(function () {
-        _this19.axios = defaultAxios();
+        _this21.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(null, true);
       }).catch(function (err) {
-        _this19.axios = defaultAxios();
+        _this21.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(err);

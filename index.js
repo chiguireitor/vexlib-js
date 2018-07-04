@@ -39,7 +39,11 @@ const build="${BUILD}"
 
 export const SATOSHIS = 100000000
 
-export function limit8Decimals(v) {
+const divideLimited = (val, divisor) => {
+  return Math.floor(val) / divisor
+}
+
+/*export function limit8Decimals(v) {
   if (v.length > 8) {
     return v.slice(0, 8)
   } else if (v.length === 8) {
@@ -47,17 +51,30 @@ export function limit8Decimals(v) {
   } else {
     return v + new Array(8 - v.length).fill(0).join('')
   }
+}*/
+
+export function limitNDecimals(v, n) {
+  if (v.length > n) {
+    return v.slice(0, n)
+  } else if (v.length === n) {
+    return v
+  } else {
+    return v + new Array(n - v.length).fill(0).join('')
+  }
 }
 
-export function sanitizeDecimals(n) {
+export function sanitizeNDecimals(n, divisor) {
+  let decimals = divisor.toString().length - 1
   let v = n + ''
   let num = v.split('.')
 
+  console.log('Sanitizing', v, ' to ', decimals, 'decimal places')
+
 
   if (num.length > 1) {
-    return num[0] + '.' + limit8Decimals(num[1])
+    return num[0] + '.' + limitNDecimals(num[1], decimals)
   } else {
-    return num[0] + '.00000000'
+    return num[0] + '.' + Array(decimals).fill(0).join('')
   }
 }
 
@@ -179,8 +196,19 @@ export default class VexLib extends EventEmitter {
 
     this.lastVexSeq = 0
     this.cbList = {}
+    this.fiatTokensDivisor = {
+      VEFT: 100
+    }
 
     this._start_socket_()
+  }
+
+  tokenDivisor(tkn) {
+    if (tkn in this.fiatTokensDivisor) {
+      return this.fiatTokensDivisor[tkn]
+    } else {
+      return SATOSHIS
+    }
   }
 
   _start_socket_() {
@@ -341,7 +369,11 @@ export default class VexLib extends EventEmitter {
         }, {})
 
         for (let asset in balances) {
-          balances[asset] = balances[asset].dividedBy(100000000).toNumber()
+          let divisor = SATOSHIS
+          if (asset in this.fiatTokensDivisor) {
+            divisor = this.fiatTokensDivisor[asset]
+          }
+          balances[asset] = balances[asset].dividedBy(divisor).toNumber()
         }
         cb(null, balances)
       }
@@ -400,37 +432,50 @@ export default class VexLib extends EventEmitter {
         let sumGive = 0
         let sumGet = 0
 
+        let giveIsFiat = give in this.fiatTokensDivisor
+        let getIsFiat = get in this.fiatTokensDivisor
+
+        let giveDivisor = giveIsFiat?this.fiatTokensDivisor[give]:SATOSHIS
+        let getDivisor = getIsFiat?this.fiatTokensDivisor[get]:SATOSHIS
+
+        console.log(isBid, giveIsFiat, getIsFiat, giveDivisor, getDivisor, give, get)
+
         let res = data.result.map(x => {
           return {
             rawGive: (isBid?x.give_remaining:x.get_remaining),
             rawGet: (isBid?x.get_remaining:x.give_remaining),
-            give: (isBid?x.give_remaining:x.get_remaining) / SATOSHIS,
-            get: (isBid?x.get_remaining:x.give_remaining) / SATOSHIS,
-            price: isBid?(x.get_quantity / x.give_quantity):(x.give_quantity / x.get_quantity)
+            give: isBid?divideLimited(x.give_remaining, giveDivisor):divideLimited(x.get_remaining, getDivisor),
+            get: isBid?divideLimited(x.get_remaining, getDivisor):divideLimited(x.give_remaining, giveDivisor),
+            //price: isBid?(x.get_quantity / x.give_quantity * getDivisor / giveDivisor):(x.give_quantity / x.get_quantity * getDivisor / giveDivisor)
+            price: isBid?((x.get_quantity / getDivisor) / (x.give_quantity / giveDivisor)):(x.give_quantity / x.get_quantity * getDivisor / giveDivisor)
+            //price: isBid?(x.get_quantity / x.give_quantity):(x.give_quantity / x.get_quantity)
           }
         }).sort((a,b) => isBid?(a.price - b.price):(b.price - a.price))
           .reduce((arr, itm) => {
             sumGive += isBid?itm.give:itm.get
             sumGet += isBid?itm.get:itm.give
 
-            itm.sumGive = sanitizeDecimals(sumGive)
-            itm.sumGet = sanitizeDecimals(sumGet)
+            itm.sumGive = sumGive
+            itm.sumGet = sumGet
 
             let lastItem = arr[arr.length - 1]
 
-            if (lastItem && lastItem.price == itm.price) {
-              lastItem.give += itm.give
-              lastItem.get += itm.get
+            if (lastItem && (lastItem.price == itm.price)) {
+              lastItem.sumGive = sumGive
+              lastItem.sumGet = sumGet
             } else {
               arr.push(itm)
             }
             return arr
           }, [])
           .map(itm => {
-            itm.give = sanitizeDecimals(itm.give)
-            itm.get = sanitizeDecimals(itm.get)
-            itm.sumGive = sanitizeDecimals(itm.sumGive)
-            itm.sumGet = sanitizeDecimals(itm.sumGive)
+            //console.log(giveDivisor, getDivisor, itm)
+            console.log('>>>>', itm, isBid, giveDivisor, getDivisor)
+            itm.give = sanitizeNDecimals(itm.give, isBid?giveDivisor:getDivisor)
+            itm.get = sanitizeNDecimals(itm.get, isBid?getDivisor:giveDivisor)
+            itm.sumGive = sanitizeNDecimals(itm.sumGive, isBid?giveDivisor:getDivisor)
+            itm.sumGet = sanitizeNDecimals(itm.sumGive, isBid?getDivisor:giveDivisor)
+            console.log('<<<<', itm)
             return itm
           })
         cb(null, {giveAsset: give, getAsset: get, book: res})
@@ -464,14 +509,21 @@ export default class VexLib extends EventEmitter {
       } else {
         let orders = data.result.map(itm => {
           let type, price, giq, geq
+
+          let giveIsFiat = itm.give_asset in this.fiatTokensDivisor
+          let getIsFiat = itm.get_asset in this.fiatTokensDivisor
+
+          let giveDivisor = giveIsFiat?this.fiatTokensDivisor[itm.give_asset]:SATOSHIS
+          let getDivisor = getIsFiat?this.fiatTokensDivisor[itm.get_asset]:SATOSHIS
+
           if (itm.give_asset === give && itm.get_asset === get) {
             type = 'buy'
-            price = itm.get_quantity / itm.give_quantity
+            price = (itm.get_quantity / getDivisor) / (itm.give_quantity / giveDivisor)
             giq = itm.give_quantity
             geq = itm.get_quantity
           } else if (itm.give_asset === get && itm.get_asset === give) {
             type = 'sell'
-            price = itm.give_quantity / itm.get_quantity
+            price = (itm.give_quantity / giveDivisor) / (itm.get_quantity / getDivisor)
             giq = itm.get_quantity
             geq = itm.give_quantity
           } else {
@@ -483,8 +535,8 @@ export default class VexLib extends EventEmitter {
             status: itm.status,
             block: itm.block_index,
             price,
-            qty: giq / SATOSHIS,
-            total: geq / SATOSHIS,
+            qty: divideLimited(giq, getDivisor),
+            total: divideLimited(geq, giveDivisor),
             hash: itm.tx_hash
           }
         }).reduce((arr, itm) => {
@@ -724,7 +776,13 @@ export default class VexLib extends EventEmitter {
         }
       })
     } else {
-      let mnemonic = bip39.generateMnemonic(null, null, bip39.wordlists[uiLang])
+      let mnemonic
+
+      mnemonic = sessionStorage.getItem('currentMnemonic')
+      if (!mnemonic) {
+        mnemonic = bip39.generateMnemonic(null, null, bip39.wordlists[uiLang])
+      }
+
       let keyPair = VexLib.keyPairFromMnemonic(mnemonic)
       let address = keyPair.getAddress()
 
@@ -940,7 +998,11 @@ export default class VexLib extends EventEmitter {
       return
     }
 
-    amount = Math.round(parseFloat(amount) * SATOSHIS)
+    let divisor = SATOSHIS
+    if (token in this.fiatTokensDivisor) {
+      divisor = this.fiatTokensDivisor[token]
+    }
+    amount = Math.round(parseFloat(amount) * divisor)
 
     this.axios.post('/vexapi/withdraw', {
       "asset": token,
@@ -997,7 +1059,10 @@ export default class VexLib extends EventEmitter {
       return
     }
 
-    amount = Math.round(parseFloat(amount) * SATOSHIS)
+    if (token in this.fiatTokensDivisor) {
+      divisor = this.fiatTokensDivisor[token]
+    }
+    amount = Math.round(parseFloat(amount) * divisor)
 
     this.axios.post('/vexapi/withdraw', {
       "asset": token,
