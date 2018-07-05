@@ -516,11 +516,15 @@ export default class VexLib extends EventEmitter {
           let giveDivisor = giveIsFiat?this.fiatTokensDivisor[itm.give_asset]:SATOSHIS
           let getDivisor = getIsFiat?this.fiatTokensDivisor[itm.get_asset]:SATOSHIS
 
+          let swapDivider = false
+
           if (itm.give_asset === give && itm.get_asset === get) {
             type = 'buy'
             price = (itm.get_quantity / getDivisor) / (itm.give_quantity / giveDivisor)
             giq = itm.give_quantity
             geq = itm.get_quantity
+
+            swapDivider = true
           } else if (itm.give_asset === get && itm.get_asset === give) {
             type = 'sell'
             price = (itm.give_quantity / giveDivisor) / (itm.get_quantity / getDivisor)
@@ -535,8 +539,8 @@ export default class VexLib extends EventEmitter {
             status: itm.status,
             block: itm.block_index,
             price,
-            qty: divideLimited(giq, getDivisor),
-            total: divideLimited(geq, giveDivisor),
+            qty: divideLimited(giq, swapDivider?giveDivisor:getDivisor),
+            total: divideLimited(geq, swapDivider?getDivisor:giveDivisor),
             hash: itm.tx_hash
           }
         }).reduce((arr, itm) => {

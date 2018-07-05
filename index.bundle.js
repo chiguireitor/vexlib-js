@@ -95,7 +95,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "98";
+var build = "99";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -619,11 +619,15 @@ var VexLib = function (_EventEmitter) {
             var giveDivisor = giveIsFiat ? _this7.fiatTokensDivisor[itm.give_asset] : SATOSHIS;
             var getDivisor = getIsFiat ? _this7.fiatTokensDivisor[itm.get_asset] : SATOSHIS;
 
+            var swapDivider = false;
+
             if (itm.give_asset === give && itm.get_asset === get) {
               type = 'buy';
               price = itm.get_quantity / getDivisor / (itm.give_quantity / giveDivisor);
               giq = itm.give_quantity;
               geq = itm.get_quantity;
+
+              swapDivider = true;
             } else if (itm.give_asset === get && itm.get_asset === give) {
               type = 'sell';
               price = itm.give_quantity / giveDivisor / (itm.get_quantity / getDivisor);
@@ -638,8 +642,8 @@ var VexLib = function (_EventEmitter) {
               status: itm.status,
               block: itm.block_index,
               price: price,
-              qty: divideLimited(giq, getDivisor),
-              total: divideLimited(geq, giveDivisor),
+              qty: divideLimited(giq, swapDivider ? giveDivisor : getDivisor),
+              total: divideLimited(geq, swapDivider ? getDivisor : giveDivisor),
               hash: itm.tx_hash
             };
           }).reduce(function (arr, itm) {
