@@ -519,17 +519,19 @@ export default class VexLib extends EventEmitter {
           let swapDivider = false
 
           if (itm.give_asset === give && itm.get_asset === get) {
-            type = 'buy'
-            price = (itm.get_quantity / getDivisor) / (itm.give_quantity / giveDivisor)
-            giq = itm.give_quantity
-            geq = itm.get_quantity
+            type = 'sell'
+            giq = itm.give_quantity - itm.give_remaining
+            geq = itm.get_quantity - itm.get_remaining
+
+            price = (geq / getDivisor) / (giq / giveDivisor)
 
             swapDivider = true
           } else if (itm.give_asset === get && itm.get_asset === give) {
-            type = 'sell'
-            price = (itm.give_quantity / giveDivisor) / (itm.get_quantity / getDivisor)
-            giq = itm.get_quantity
-            geq = itm.give_quantity
+            type = 'buy'
+            giq = itm.get_quantity - itm.get_remaining
+            geq = itm.give_quantity - itm.give_remaining
+
+            price = (geq / giveDivisor) / (giq / getDivisor) //(giq / giveDivisor) / (geq / getDivisor)
           } else {
             return undefined
           }
