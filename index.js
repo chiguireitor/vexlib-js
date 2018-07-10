@@ -200,7 +200,21 @@ export default class VexLib extends EventEmitter {
       VEFT: 100
     }
 
-    this._start_socket_()
+    this._is_connected_ = false
+    this._call_list_ = []
+
+    this.axios.get('/config')
+      .then((response) => {
+        console.log('Config loaded', response.data)
+        this.exchangeAddress = response.data.exchangeAddress
+
+        this._start_socket_()
+      })
+      .catch(() => {
+        console.log('No config, starting up anyways')
+
+        this._start_socket_()
+      })
   }
 
   tokenDivisor(tkn) {
@@ -213,8 +227,6 @@ export default class VexLib extends EventEmitter {
 
   _start_socket_() {
     this.socket = io(baseUrl, {path: '/vexapi/socketio/'})
-    this._is_connected_ = false
-    this._call_list_ = []
 
     this.socket.on('connect', this._socket_connect_)
     this.socket.on('new block', this._socket_newblock_)
@@ -643,35 +655,41 @@ export default class VexLib extends EventEmitter {
       localStorage.setItem(itemKey, data)
     }
 
-    if (userData === null) {
-      let husr = hash.sha256().update(email).digest('hex')
-      this.axios.get(`/vexapi/user/${husr}`)
-        .then((response) => {
-          if (response.status === 200) {
-            decrypt(response.data, (err, data) => {
-              if (err) {
-                fail('bad-data-or-bad-password')
-              } else {
-                store(response.data)
-                success(data)
-              }
-            })
+    let tryLogin = () => {
+      if (userData === null) {
+        let husr = hash.sha256().update(email).digest('hex')
+        this.axios.get(`/vexapi/user/${husr}`)
+          .then((response) => {
+            if (response.status === 200) {
+              decrypt(response.data, (err, data) => {
+                if (err) {
+                  fail('bad-data-or-bad-password')
+                } else {
+                  store(response.data)
+                  success(data)
+                }
+              })
+            } else {
+              fail('error-request-status')
+            }
+          })
+          .catch(() => {
+            fail('error-request')
+          })
+      } else {
+        decrypt(userData, (err, data) => {
+          if (err) {
+            //fail('bad-data-or-bad-password')
+            userData = null
+            tryLogin()
           } else {
-            fail('error-request-status')
+            success(data)
           }
         })
-        .catch(() => {
-          fail('error-request')
-        })
-    } else {
-      decrypt(userData, (err, data) => {
-        if (err) {
-          fail('bad-data-or-bad-password')
-        } else {
-          success(data)
-        }
-      })
+      }
     }
+
+    tryLogin()
   }
 
   static keyPairFromMnemonic(mnemonic) {
@@ -1020,18 +1038,20 @@ export default class VexLib extends EventEmitter {
       if (response.status === 200) {
         if (response.data.error) {
           fail(response.data.error)
+        } else if (!response.data) {
+          fail(response.error)
         } else {
           signTransaction(response.data.result, (signed) => {
-            return this.axios.post('/vexapi/sendtx', {
+            this.axios.post('/vexapi/sendtx', {
               rawtx: signed
+            }).then((response) => {
+              success(response.data.result)
             })
           })
         }
       } else {
         fail('error-building-tx')
       }
-    }).then((response) => {
-      success(response.data.result)
     }).catch((err) => {
       fail(err)
     })

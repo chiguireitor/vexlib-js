@@ -95,7 +95,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "103";
+var build = "111";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -304,7 +304,19 @@ var VexLib = function (_EventEmitter) {
       VEFT: 100
     };
 
-    _this._start_socket_();
+    _this._is_connected_ = false;
+    _this._call_list_ = [];
+
+    _this.axios.get('/config').then(function (response) {
+      console.log('Config loaded', response.data);
+      _this.exchangeAddress = response.data.exchangeAddress;
+
+      _this._start_socket_();
+    }).catch(function () {
+      console.log('No config, starting up anyways');
+
+      _this._start_socket_();
+    });
     return _this;
   }
 
@@ -323,8 +335,6 @@ var VexLib = function (_EventEmitter) {
       var _this2 = this;
 
       this.socket = (0, _socket2.default)(baseUrl, { path: '/vexapi/socketio/' });
-      this._is_connected_ = false;
-      this._call_list_ = [];
 
       this.socket.on('connect', this._socket_connect_);
       this.socket.on('new block', this._socket_newblock_);
@@ -714,6 +724,8 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getUser',
     value: function getUser(email, password, cb) {
+      var _this8 = this;
+
       var itemKey = '_user_data_' + email + '_';
       var userData = localStorage.getItem(itemKey);
 
@@ -751,38 +763,44 @@ var VexLib = function (_EventEmitter) {
         localStorage.setItem(itemKey, data);
       };
 
-      if (userData === null) {
-        var husr = _hash2.default.sha256().update(email).digest('hex');
-        this.axios.get('/vexapi/user/' + husr).then(function (response) {
-          if (response.status === 200) {
-            decrypt(response.data, function (err, data) {
-              if (err) {
-                fail('bad-data-or-bad-password');
-              } else {
-                store(response.data);
-                success(data);
-              }
-            });
-          } else {
-            fail('error-request-status');
-          }
-        }).catch(function () {
-          fail('error-request');
-        });
-      } else {
-        decrypt(userData, function (err, data) {
-          if (err) {
-            fail('bad-data-or-bad-password');
-          } else {
-            success(data);
-          }
-        });
-      }
+      var tryLogin = function tryLogin() {
+        if (userData === null) {
+          var husr = _hash2.default.sha256().update(email).digest('hex');
+          _this8.axios.get('/vexapi/user/' + husr).then(function (response) {
+            if (response.status === 200) {
+              decrypt(response.data, function (err, data) {
+                if (err) {
+                  fail('bad-data-or-bad-password');
+                } else {
+                  store(response.data);
+                  success(data);
+                }
+              });
+            } else {
+              fail('error-request-status');
+            }
+          }).catch(function () {
+            fail('error-request');
+          });
+        } else {
+          decrypt(userData, function (err, data) {
+            if (err) {
+              //fail('bad-data-or-bad-password')
+              userData = null;
+              tryLogin();
+            } else {
+              success(data);
+            }
+          });
+        }
+      };
+
+      tryLogin();
     }
   }, {
     key: 'sendRegisterPkg',
     value: function sendRegisterPkg(userAddress, pkg, cb) {
-      var _this8 = this;
+      var _this9 = this;
 
       var fail = function fail(err) {
         cb(err || 'bad-user-data');
@@ -804,7 +822,7 @@ var VexLib = function (_EventEmitter) {
 
           //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
           delete pkg['files'];
-          _this8.axios.post('/vexapi/userdocs/' + userAddress, {
+          _this9.axios.post('/vexapi/userdocs/' + userAddress, {
             data: encryptedHex,
             extraData: pkg
           }).then(function (data) {
@@ -822,7 +840,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'createUser',
     value: function createUser(email, password, uiLang, cb) {
-      var _this9 = this;
+      var _this10 = this;
 
       var externalToken = null;
 
@@ -860,7 +878,7 @@ var VexLib = function (_EventEmitter) {
           }
         };
 
-        _this9.axios.post('/vexapi/user', {
+        _this10.axios.post('/vexapi/user', {
           userid: husr,
           email: email,
           cryptdata: encryptedHex,
@@ -912,7 +930,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'createOrder',
     value: function createOrder(giveAsset, giveAmount, getAsset, getAmount, cb) {
-      var _this10 = this;
+      var _this11 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -924,7 +942,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this10.emit('need-login');
+          _this11.emit('need-login');
         }
 
         cb(err || 'error-creating-order');
@@ -944,7 +962,7 @@ var VexLib = function (_EventEmitter) {
         if (response.status === 200) {
           console.log(response.data);
           signTransaction(response.data.result, function (signed) {
-            _this10.axios.post('/vexapi/sendtx', {
+            _this11.axios.post('/vexapi/sendtx', {
               rawtx: signed
             }).then(function (response) {
               success(response.data.result);
@@ -960,7 +978,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'cancelOrder',
     value: function cancelOrder(txid, cb) {
-      var _this11 = this;
+      var _this12 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -973,7 +991,7 @@ var VexLib = function (_EventEmitter) {
       var fail = function fail(err) {
 
         if (err.response && err.response.status === 401) {
-          _this11.emit('need-login');
+          _this12.emit('need-login');
         }
 
         cb('error-creating-cancel');
@@ -989,7 +1007,7 @@ var VexLib = function (_EventEmitter) {
       }).then(function (response) {
         if (response.status === 200) {
           signTransaction(response.data.result, function (signed) {
-            return _this11.axios.post('/vexapi/sendtx', {
+            return _this12.axios.post('/vexapi/sendtx', {
               rawtx: signed
             });
           });
@@ -1005,7 +1023,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'reportFiatDeposit',
     value: function reportFiatDeposit(getToken, getAmount, depositId, bankName, files, cb) {
-      var _this12 = this;
+      var _this13 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1018,7 +1036,7 @@ var VexLib = function (_EventEmitter) {
       var fail = function fail(err) {
 
         if (err.response && err.response.status === 401) {
-          _this12.emit('need-login');
+          _this13.emit('need-login');
         }
 
         console.log(err);
@@ -1036,12 +1054,12 @@ var VexLib = function (_EventEmitter) {
       }).then(function (response) {
         if (response.status === 200) {
           signTransaction(response.data.result, function (signed) {
-            return _this12.axios.post('/vexapi/sendtx', {
+            return _this13.axios.post('/vexapi/sendtx', {
               rawtx: signed
             }).then(function (response) {
               var txid = response.data.result;
 
-              _this12.axios.get('/vexapi/sesskey/' + currentAddress).then(function (response) {
+              _this13.axios.get('/vexapi/sesskey/' + currentAddress).then(function (response) {
                 if (response.status === 200) {
                   var key = Buffer.from(response.data.key, 'hex');
                   var aesCtr = new _aesJs2.default.ModeOfOperation.ctr(key, new _aesJs2.default.Counter(5));
@@ -1052,7 +1070,7 @@ var VexLib = function (_EventEmitter) {
                   var encryptedHex = Buffer.from(intermediaryHex, 'hex').toString('base64');
 
                   //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
-                  _this12.axios.post('/vexapi/deprep/' + currentAddress, {
+                  _this13.axios.post('/vexapi/deprep/' + currentAddress, {
                     data: encryptedHex,
                     txid: txid
                   }).then(function (data) {
@@ -1078,7 +1096,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateWithdrawal',
     value: function generateWithdrawal(token, amount, address, info, cb) {
-      var _this13 = this;
+      var _this14 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1090,7 +1108,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this13.emit('need-login');
+          _this14.emit('need-login');
         }
 
         cb(err || 'error-generating-withdrawal');
@@ -1137,18 +1155,20 @@ var VexLib = function (_EventEmitter) {
         if (response.status === 200) {
           if (response.data.error) {
             fail(response.data.error);
+          } else if (!response.data) {
+            fail(response.error);
           } else {
             signTransaction(response.data.result, function (signed) {
-              return _this13.axios.post('/vexapi/sendtx', {
+              _this14.axios.post('/vexapi/sendtx', {
                 rawtx: signed
+              }).then(function (response) {
+                success(response.data.result);
               });
             });
           }
         } else {
           fail('error-building-tx');
         }
-      }).then(function (response) {
-        success(response.data.result);
       }).catch(function (err) {
         fail(err);
       });
@@ -1156,7 +1176,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateCodeWithdrawal',
     value: function generateCodeWithdrawal(token, amount, code, cb) {
-      var _this14 = this;
+      var _this15 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1168,7 +1188,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this14.emit('need-login');
+          _this15.emit('need-login');
         }
 
         cb(err || 'error-generating-withdrawal');
@@ -1202,7 +1222,7 @@ var VexLib = function (_EventEmitter) {
             fail(response.data.error);
           } else {
             signTransaction(response.data.result, function (signed) {
-              return _this14.axios.post('/vexapi/sendtx', {
+              return _this15.axios.post('/vexapi/sendtx', {
                 rawtx: signed
               });
             });
@@ -1219,7 +1239,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generatePaymentBill',
     value: function generatePaymentBill(token, quantity, concept, cb) {
-      var _this15 = this;
+      var _this16 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1231,7 +1251,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this15.emit('need-login');
+          _this16.emit('need-login');
         }
 
         cb('error-creating-report');
@@ -1247,7 +1267,7 @@ var VexLib = function (_EventEmitter) {
       }).then(function (response) {
         if (response.status === 200) {
           signTransaction(response.data.result, function (signed) {
-            return _this15.axios.post('/vexapi/sendtx', {
+            return _this16.axios.post('/vexapi/sendtx', {
               rawtx: signed
             });
           });
@@ -1337,7 +1357,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getDeposits',
     value: function getDeposits(addr, cb) {
-      var _this16 = this;
+      var _this17 = this;
 
       if (!cb && typeof addr === 'function') {
         cb = addr;
@@ -1355,7 +1375,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this16.emit('need-login');
+          _this17.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -1378,7 +1398,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateTokenDepositAddress',
     value: function generateTokenDepositAddress(token, cb) {
-      var _this17 = this;
+      var _this18 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1391,7 +1411,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this17.emit('need-login');
+          _this18.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -1413,7 +1433,7 @@ var VexLib = function (_EventEmitter) {
           fail(err);
         } else {
           signTransaction(data.result, function (signedTransaction) {
-            _this17.axios.post('/vexapi/sendtx', {
+            _this18.axios.post('/vexapi/sendtx', {
               rawtx: signedTransaction
             }).then(function (response) {
               success(response.data.result);
@@ -1427,7 +1447,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getTokenDepositAddress',
     value: function getTokenDepositAddress(token, cb) {
-      var _this18 = this;
+      var _this19 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1440,7 +1460,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this18.emit('need-login');
+          _this19.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -1503,7 +1523,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'localLogin',
     value: function localLogin(externalToken, cb) {
-      var _this19 = this;
+      var _this20 = this;
 
       if (typeof cb === 'undefined') {
         cb = externalToken;
@@ -1512,7 +1532,7 @@ var VexLib = function (_EventEmitter) {
 
       var sign = function sign(currentAddress) {
         sessionStorage.setItem('currentAddress', currentAddress);
-        _this19.getChallenge(function (err, challenge) {
+        _this20.getChallenge(function (err, challenge) {
           if (err) {
             cb(err);
           } else {
@@ -1521,14 +1541,14 @@ var VexLib = function (_EventEmitter) {
                 console.log(sigResult);
                 cb('couldnt-sign');
               } else {
-                _this19.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
+                _this20.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
                   if (response.data.success) {
-                    _this19.axios = defaultAxios({ headers: {
+                    _this20.axios = defaultAxios({ headers: {
                         'addr': currentAddress,
                         'token': response.data.accessToken
                       } });
 
-                    _this19.userEnabled(function (err, isEnabled) {
+                    _this20.userEnabled(function (err, isEnabled) {
                       if (err) {
                         cb(err);
                       } else {
@@ -1572,7 +1592,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'remoteLogin',
     value: function remoteLogin(email, password, externalToken, cb) {
-      var _this20 = this;
+      var _this21 = this;
 
       if (typeof cb === "undefined") {
         cb = externalToken;
@@ -1586,13 +1606,13 @@ var VexLib = function (_EventEmitter) {
           if (err) {
             if (err === 'bad-data-or-bad-password') {
               console.log('Attempting local only login');
-              _this20.localLogin(null, cb);
+              _this21.localLogin(null, cb);
             } else {
               cb(err);
             }
           } else {
             console.log('Attempting local only login');
-            _this20.localLogin(null, cb);
+            _this21.localLogin(null, cb);
           }
         });
       }
@@ -1600,7 +1620,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'remoteLogout',
     value: function remoteLogout(cb) {
-      var _this21 = this;
+      var _this22 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1611,12 +1631,12 @@ var VexLib = function (_EventEmitter) {
       }
 
       this.axios.get('/vexapi/logout').then(function () {
-        _this21.axios = defaultAxios();
+        _this22.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(null, true);
       }).catch(function (err) {
-        _this21.axios = defaultAxios();
+        _this22.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(err);
