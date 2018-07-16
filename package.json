@@ -1,6 +1,6 @@
 {
   "name": "vexlib-js",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Biblioteca para interactuar con vex",
   "main": "index.bundle.js",
   "repository": "ssh://git@192.168.3.6:10022/vex/vexlib-js.git",

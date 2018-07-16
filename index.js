@@ -205,10 +205,26 @@ export default class VexLib extends EventEmitter {
 
     this.axios.get('/config')
       .then((response) => {
-        console.log('Config loaded', response.data)
-        this.exchangeAddress = response.data.exchangeAddress
+        if (response.data.exchangeAddress) {
+          console.log('Config loaded', response.data)
 
-        this._start_socket_()
+          this.exchangeAddress = response.data.exchangeAddress
+
+          this._start_socket_()
+        } else {
+          this.axios.get('/vexapi/config')
+            .then((response) => {
+              if (response.data.exchangeAddress) {
+                console.log('Config loaded', response.data)
+
+                this.exchangeAddress = response.data.exchangeAddress
+
+                this._start_socket_()
+              } else {
+                console.log('Config couldnt be loaded, continuing anyways')
+              }
+            })
+        }
       })
       .catch(() => {
         console.log('No config, starting up anyways')

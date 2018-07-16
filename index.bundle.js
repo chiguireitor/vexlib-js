@@ -95,7 +95,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "111";
+var build = "112";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -308,10 +308,25 @@ var VexLib = function (_EventEmitter) {
     _this._call_list_ = [];
 
     _this.axios.get('/config').then(function (response) {
-      console.log('Config loaded', response.data);
-      _this.exchangeAddress = response.data.exchangeAddress;
+      if (response.data.exchangeAddress) {
+        console.log('Config loaded', response.data);
 
-      _this._start_socket_();
+        _this.exchangeAddress = response.data.exchangeAddress;
+
+        _this._start_socket_();
+      } else {
+        _this.axios.get('/vexapi/config').then(function (response) {
+          if (response.data.exchangeAddress) {
+            console.log('Config loaded', response.data);
+
+            _this.exchangeAddress = response.data.exchangeAddress;
+
+            _this._start_socket_();
+          } else {
+            console.log('Config couldnt be loaded, continuing anyways');
+          }
+        });
+      }
     }).catch(function () {
       console.log('No config, starting up anyways');
 
