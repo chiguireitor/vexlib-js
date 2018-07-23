@@ -203,6 +203,8 @@ export default class VexLib extends EventEmitter {
     this._is_connected_ = false
     this._call_list_ = []
 
+    this.sKeyPairFromMnemonic = VexLib.keyPairFromMnemonic
+
     this.axios.get('/config')
       .then((response) => {
         if (response.data.exchangeAddress) {
@@ -417,10 +419,20 @@ export default class VexLib extends EventEmitter {
       return
     }
 
+    /*this.index('', {url: `/a/${currentAddress}/utxos`}, (err, data) => {
+      console.log('Got from utxo', err, data)
+      if (err) {
+        cb(err)
+      } else {
+        cb(null, data.length > 0)
+      }
+    })*/
+
     this.vex('get_unspent_txouts', {
       address: currentAddress,
       unconfirmed: true
     }, (err, data) => {
+      console.log('Got from utxo', err, data)
       if (err) {
         cb(err)
       } else {
@@ -636,6 +648,22 @@ export default class VexLib extends EventEmitter {
     })
   }
 
+  testDecryptData(data, password) {
+    let key = hash.sha256().update(password).digest()
+    let aesCtr = new aesjs.ModeOfOperation.ctr(key, new aesjs.Counter(5))
+    let encryptedBytes = Buffer.from(data, 'hex')
+    let decryptedBytes = aesCtr.decrypt(encryptedBytes)
+    let decryptedText = aesjs.utils.utf8.fromBytes(decryptedBytes)
+
+    try {
+      let ob = JSON.parse(decryptedText)
+
+      return ob
+    } catch(e) {
+      return false
+    }
+  }
+
   getUser(email, password, cb) {
     let itemKey = `_user_data_${email}_`
     let userData = localStorage.getItem(itemKey)
@@ -750,6 +778,12 @@ export default class VexLib extends EventEmitter {
     }).catch((err) => {
       fail(err)
     })
+  }
+
+  replaceLocalUser(email, password, mnemonic, uiLang, cb) {
+    sessionStorage.setItem('currentMnemonic', mnemonic)
+
+    this.createUser(email, password, uiLang, cb)
   }
 
   createUser(email, password, uiLang, cb) {
@@ -1415,14 +1449,17 @@ export default class VexLib extends EventEmitter {
       sessionStorage.setItem('currentAddress', currentAddress)
       this.getChallenge((err, challenge) => {
         if (err) {
+          console.log('Error getting challenge')
           cb(err)
         } else {
           let postChallenge = (sigResult) => {
             if (!sigResult) {
-              console.log(sigResult)
+              console.log('cant sign', sigResult)
               cb('couldnt-sign')
             } else {
+              console.log('signature ready, posting')
               this.axios.post(`/vexapi/challenge/${currentAddress}`, {signature: sigResult}).then((response) => {
+                console.log('Got response from sig', response)
                 if (response.data.success) {
                   this.axios = defaultAxios({headers: {
                     'addr': currentAddress,
@@ -1430,6 +1467,7 @@ export default class VexLib extends EventEmitter {
                   }})
 
                   this.userEnabled((err, isEnabled) => {
+                    console.log('Got from user enabled', isEnabled, err)
                     if (err) {
                       cb(err)
                     } else {
@@ -1441,9 +1479,11 @@ export default class VexLib extends EventEmitter {
                     }
                   })
                 } else {
+                  console.log('challenge error', response.data)
                   cb('challenge-error')
                 }
               }).catch(err => {
+                console.log('challenge exception', err)
                 cb(err)
               })
             }
@@ -1486,6 +1526,7 @@ export default class VexLib extends EventEmitter {
             console.log('Attempting local only login')
             this.localLogin(null, cb)
           } else {
+            console.log('Unrecoverable error while trying to login', email)
             cb(err)
           }
         } else {

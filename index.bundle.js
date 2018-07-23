@@ -95,7 +95,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "112";
+var build = "125";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -307,6 +307,8 @@ var VexLib = function (_EventEmitter) {
     _this._is_connected_ = false;
     _this._call_list_ = [];
 
+    _this.sKeyPairFromMnemonic = VexLib.keyPairFromMnemonic;
+
     _this.axios.get('/config').then(function (response) {
       if (response.data.exchangeAddress) {
         console.log('Config loaded', response.data);
@@ -508,10 +510,20 @@ var VexLib = function (_EventEmitter) {
         return;
       }
 
+      /*this.index('', {url: `/a//utxos`}, (err, data) => {
+        console.log('Got from utxo', err, data)
+        if (err) {
+          cb(err)
+        } else {
+          cb(null, data.length > 0)
+        }
+      })*/
+
       this.vex('get_unspent_txouts', {
         address: currentAddress,
         unconfirmed: true
       }, function (err, data) {
+        console.log('Got from utxo', err, data);
         if (err) {
           cb(err);
         } else {
@@ -737,6 +749,23 @@ var VexLib = function (_EventEmitter) {
       });
     }
   }, {
+    key: 'testDecryptData',
+    value: function testDecryptData(data, password) {
+      var key = _hash2.default.sha256().update(password).digest();
+      var aesCtr = new _aesJs2.default.ModeOfOperation.ctr(key, new _aesJs2.default.Counter(5));
+      var encryptedBytes = Buffer.from(data, 'hex');
+      var decryptedBytes = aesCtr.decrypt(encryptedBytes);
+      var decryptedText = _aesJs2.default.utils.utf8.fromBytes(decryptedBytes);
+
+      try {
+        var ob = JSON.parse(decryptedText);
+
+        return ob;
+      } catch (e) {
+        return false;
+      }
+    }
+  }, {
     key: 'getUser',
     value: function getUser(email, password, cb) {
       var _this8 = this;
@@ -851,6 +880,13 @@ var VexLib = function (_EventEmitter) {
       }).catch(function (err) {
         fail(err);
       });
+    }
+  }, {
+    key: 'replaceLocalUser',
+    value: function replaceLocalUser(email, password, mnemonic, uiLang, cb) {
+      sessionStorage.setItem('currentMnemonic', mnemonic);
+
+      this.createUser(email, password, uiLang, cb);
     }
   }, {
     key: 'createUser',
@@ -1549,14 +1585,17 @@ var VexLib = function (_EventEmitter) {
         sessionStorage.setItem('currentAddress', currentAddress);
         _this20.getChallenge(function (err, challenge) {
           if (err) {
+            console.log('Error getting challenge');
             cb(err);
           } else {
             var postChallenge = function postChallenge(sigResult) {
               if (!sigResult) {
-                console.log(sigResult);
+                console.log('cant sign', sigResult);
                 cb('couldnt-sign');
               } else {
+                console.log('signature ready, posting');
                 _this20.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
+                  console.log('Got response from sig', response);
                   if (response.data.success) {
                     _this20.axios = defaultAxios({ headers: {
                         'addr': currentAddress,
@@ -1564,6 +1603,7 @@ var VexLib = function (_EventEmitter) {
                       } });
 
                     _this20.userEnabled(function (err, isEnabled) {
+                      console.log('Got from user enabled', isEnabled, err);
                       if (err) {
                         cb(err);
                       } else {
@@ -1575,9 +1615,11 @@ var VexLib = function (_EventEmitter) {
                       }
                     });
                   } else {
+                    console.log('challenge error', response.data);
                     cb('challenge-error');
                   }
                 }).catch(function (err) {
+                  console.log('challenge exception', err);
                   cb(err);
                 });
               }
@@ -1623,6 +1665,7 @@ var VexLib = function (_EventEmitter) {
               console.log('Attempting local only login');
               _this21.localLogin(null, cb);
             } else {
+              console.log('Unrecoverable error while trying to login', email);
               cb(err);
             }
           } else {
