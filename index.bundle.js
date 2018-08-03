@@ -95,7 +95,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "125";
+var build = "134";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -127,8 +127,6 @@ function sanitizeNDecimals(n, divisor) {
   var decimals = divisor.toString().length - 1;
   var v = n + '';
   var num = v.split('.');
-
-  console.log('Sanitizing', v, ' to ', decimals, 'decimal places');
 
   if (num.length > 1) {
     return num[0] + '.' + limitNDecimals(num[1], decimals);
@@ -582,8 +580,8 @@ var VexLib = function (_EventEmitter) {
           }).sort(function (a, b) {
             return isBid ? a.price - b.price : b.price - a.price;
           }).reduce(function (arr, itm) {
-            sumGive += isBid ? itm.give : itm.get;
-            sumGet += isBid ? itm.get : itm.give;
+            sumGive += itm.give; //isBid?itm.give:itm.get
+            sumGet += itm.get; //isBid?itm.get:itm.give
 
             itm.sumGive = sumGive;
             itm.sumGet = sumGet;
@@ -593,18 +591,17 @@ var VexLib = function (_EventEmitter) {
             if (lastItem && lastItem.price == itm.price) {
               lastItem.sumGive = sumGive;
               lastItem.sumGet = sumGet;
+              lastItem.give += itm.give;
+              lastItem.get += itm.get;
             } else {
               arr.push(itm);
             }
             return arr;
           }, []).map(function (itm) {
-            //console.log(giveDivisor, getDivisor, itm)
-            console.log('>>>>', itm, isBid, giveDivisor, getDivisor);
             itm.give = sanitizeNDecimals(itm.give, isBid ? giveDivisor : getDivisor);
             itm.get = sanitizeNDecimals(itm.get, isBid ? getDivisor : giveDivisor);
             itm.sumGive = sanitizeNDecimals(itm.sumGive, isBid ? giveDivisor : getDivisor);
-            itm.sumGet = sanitizeNDecimals(itm.sumGive, isBid ? getDivisor : giveDivisor);
-            console.log('<<<<', itm);
+            itm.sumGet = sanitizeNDecimals(itm.sumGet, isBid ? getDivisor : giveDivisor);
             return itm;
           });
           cb(null, { giveAsset: give, getAsset: get, book: res });
@@ -644,7 +641,10 @@ var VexLib = function (_EventEmitter) {
         if (err) {
           cb(err);
         } else {
-          var orders = data.result.map(function (itm) {
+          console.log('PrevOrders', data.result);
+          var orders = data.result.filter(function (itm) {
+            return !itm.status.startsWith('invalid');
+          }).map(function (itm) {
             var type = void 0,
                 price = void 0,
                 giq = void 0,
@@ -660,16 +660,35 @@ var VexLib = function (_EventEmitter) {
 
             if (itm.give_asset === give && itm.get_asset === get) {
               type = 'sell';
-              giq = itm.give_quantity - itm.give_remaining;
-              geq = itm.get_quantity - itm.get_remaining;
+
+              if (itm.give_quantity === itm.give_remaining) {
+                giq = itm.give_quantity;
+              } else {
+                giq = itm.give_quantity - itm.give_remaining;
+              }
+
+              if (itm.get_quantity === itm.get_remaining) {
+                geq = itm.get_quantity;
+              } else {
+                geq = itm.get_quantity - itm.get_remaining;
+              }
 
               price = geq / getDivisor / (giq / giveDivisor);
 
               swapDivider = true;
             } else if (itm.give_asset === get && itm.get_asset === give) {
               type = 'buy';
-              giq = itm.get_quantity - itm.get_remaining;
-              geq = itm.give_quantity - itm.give_remaining;
+              if (itm.get_quantity === itm.get_remaining) {
+                giq = itm.get_quantity;
+              } else {
+                giq = itm.get_quantity - itm.get_remaining;
+              }
+
+              if (itm.give_quantity === itm.give_remaining) {
+                geq = itm.give_quantity;
+              } else {
+                geq = itm.give_quantity - itm.give_remaining;
+              }
 
               price = geq / giveDivisor / (giq / getDivisor); //(giq / giveDivisor) / (geq / getDivisor)
             } else {

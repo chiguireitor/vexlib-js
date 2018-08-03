@@ -68,9 +68,6 @@ export function sanitizeNDecimals(n, divisor) {
   let v = n + ''
   let num = v.split('.')
 
-  console.log('Sanitizing', v, ' to ', decimals, 'decimal places')
-
-
   if (num.length > 1) {
     return num[0] + '.' + limitNDecimals(num[1], decimals)
   } else {
@@ -388,7 +385,7 @@ export default class VexLib extends EventEmitter {
       if (err) {
         cb(err)
       } else {
-        console.log(data.result)
+        //console.log(data.result)
         let balances = data.result.reduce((p, x) => {
           if (!(x.asset in p)) {
             p[x.asset] = new BigNumber(x.quantity)
@@ -432,7 +429,7 @@ export default class VexLib extends EventEmitter {
       address: currentAddress,
       unconfirmed: true
     }, (err, data) => {
-      console.log('Got from utxo', err, data)
+      //console.log('Got from utxo', err, data)
       if (err) {
         cb(err)
       } else {
@@ -478,7 +475,7 @@ export default class VexLib extends EventEmitter {
         let giveDivisor = giveIsFiat?this.fiatTokensDivisor[give]:SATOSHIS
         let getDivisor = getIsFiat?this.fiatTokensDivisor[get]:SATOSHIS
 
-        console.log(isBid, giveIsFiat, getIsFiat, giveDivisor, getDivisor, give, get)
+        //console.log(isBid, giveIsFiat, getIsFiat, giveDivisor, getDivisor, give, get)
 
         let res = data.result.map(x => {
           return {
@@ -492,8 +489,8 @@ export default class VexLib extends EventEmitter {
           }
         }).sort((a,b) => isBid?(a.price - b.price):(b.price - a.price))
           .reduce((arr, itm) => {
-            sumGive += isBid?itm.give:itm.get
-            sumGet += isBid?itm.get:itm.give
+            sumGive += itm.give//isBid?itm.give:itm.get
+            sumGet += itm.get//isBid?itm.get:itm.give
 
             itm.sumGive = sumGive
             itm.sumGet = sumGet
@@ -503,19 +500,18 @@ export default class VexLib extends EventEmitter {
             if (lastItem && (lastItem.price == itm.price)) {
               lastItem.sumGive = sumGive
               lastItem.sumGet = sumGet
+              lastItem.give += itm.give
+              lastItem.get += itm.get
             } else {
               arr.push(itm)
             }
             return arr
           }, [])
           .map(itm => {
-            //console.log(giveDivisor, getDivisor, itm)
-            console.log('>>>>', itm, isBid, giveDivisor, getDivisor)
             itm.give = sanitizeNDecimals(itm.give, isBid?giveDivisor:getDivisor)
             itm.get = sanitizeNDecimals(itm.get, isBid?getDivisor:giveDivisor)
             itm.sumGive = sanitizeNDecimals(itm.sumGive, isBid?giveDivisor:getDivisor)
-            itm.sumGet = sanitizeNDecimals(itm.sumGive, isBid?getDivisor:giveDivisor)
-            console.log('<<<<', itm)
+            itm.sumGet = sanitizeNDecimals(itm.sumGet, isBid?getDivisor:giveDivisor)
             return itm
           })
         cb(null, {giveAsset: give, getAsset: get, book: res})
@@ -547,7 +543,8 @@ export default class VexLib extends EventEmitter {
       if (err) {
         cb(err)
       } else {
-        let orders = data.result.map(itm => {
+        console.log('PrevOrders', data.result)
+        let orders = data.result.filter(itm => !itm.status.startsWith('invalid')).map(itm => {
           let type, price, giq, geq
 
           let giveIsFiat = itm.give_asset in this.fiatTokensDivisor
@@ -560,16 +557,35 @@ export default class VexLib extends EventEmitter {
 
           if (itm.give_asset === give && itm.get_asset === get) {
             type = 'sell'
-            giq = itm.give_quantity - itm.give_remaining
-            geq = itm.get_quantity - itm.get_remaining
+
+            if (itm.give_quantity === itm.give_remaining) {
+              giq = itm.give_quantity
+            } else {
+              giq = itm.give_quantity - itm.give_remaining
+            }
+
+            if (itm.get_quantity === itm.get_remaining) {
+              geq = itm.get_quantity
+            } else {
+              geq = itm.get_quantity - itm.get_remaining
+            }
 
             price = (geq / getDivisor) / (giq / giveDivisor)
 
             swapDivider = true
           } else if (itm.give_asset === get && itm.get_asset === give) {
             type = 'buy'
-            giq = itm.get_quantity - itm.get_remaining
-            geq = itm.give_quantity - itm.give_remaining
+            if (itm.get_quantity === itm.get_remaining) {
+              giq = itm.get_quantity
+            } else {
+              giq = itm.get_quantity - itm.get_remaining
+            }
+
+            if (itm.give_quantity === itm.give_remaining) {
+              geq = itm.give_quantity
+            } else {
+              geq = itm.give_quantity - itm.give_remaining
+            }
 
             price = (geq / giveDivisor) / (giq / getDivisor) //(giq / giveDivisor) / (geq / getDivisor)
           } else {
