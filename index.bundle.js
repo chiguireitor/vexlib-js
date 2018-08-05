@@ -95,7 +95,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "134";
+var build = "135";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -476,7 +476,7 @@ var VexLib = function (_EventEmitter) {
         if (err) {
           cb(err);
         } else {
-          console.log(data.result);
+          //console.log(data.result)
           var balances = data.result.reduce(function (p, x) {
             if (!(x.asset in p)) {
               p[x.asset] = new _bignumber.BigNumber(x.quantity);
@@ -521,7 +521,7 @@ var VexLib = function (_EventEmitter) {
         address: currentAddress,
         unconfirmed: true
       }, function (err, data) {
-        console.log('Got from utxo', err, data);
+        //console.log('Got from utxo', err, data)
         if (err) {
           cb(err);
         } else {
@@ -565,7 +565,7 @@ var VexLib = function (_EventEmitter) {
           var giveDivisor = giveIsFiat ? _this6.fiatTokensDivisor[give] : SATOSHIS;
           var getDivisor = getIsFiat ? _this6.fiatTokensDivisor[get] : SATOSHIS;
 
-          console.log(isBid, giveIsFiat, getIsFiat, giveDivisor, getDivisor, give, get);
+          //console.log(isBid, giveIsFiat, getIsFiat, giveDivisor, getDivisor, give, get)
 
           var res = data.result.map(function (x) {
             return {
@@ -702,6 +702,8 @@ var VexLib = function (_EventEmitter) {
               price: price,
               qty: divideLimited(giq, swapDivider ? giveDivisor : getDivisor),
               total: divideLimited(geq, swapDivider ? getDivisor : giveDivisor),
+              get: itm.get_quantity,
+              give: itm.give_quantity,
               hash: itm.tx_hash
             };
           }).reduce(function (arr, itm) {

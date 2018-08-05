@@ -599,6 +599,8 @@ export default class VexLib extends EventEmitter {
             price,
             qty: divideLimited(giq, swapDivider?giveDivisor:getDivisor),
             total: divideLimited(geq, swapDivider?getDivisor:giveDivisor),
+            get: itm.get_quantity,
+            give: itm.give_quantity,
             hash: itm.tx_hash
           }
         }).reduce((arr, itm) => {
