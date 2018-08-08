@@ -149,6 +149,7 @@ function signTransaction(rawHex, cb) {
         console.log('Trezor ERR:')
         console.log(err)
         console.trace()
+        cb(null)
       } else {
         console.log('Serialized TX:', tx)
 
