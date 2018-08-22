@@ -95,7 +95,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "136";
+var build = "138";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -674,7 +674,10 @@ var VexLib = function (_EventEmitter) {
                 geq = itm.get_quantity - itm.get_remaining;
               }
 
-              price = geq / getDivisor / (giq / giveDivisor);
+              var pgege = new _bignumber.BigNumber(geq).dividedBy(getDivisor);
+              var pgigi = new _bignumber.BigNumber(giq).dividedBy(giveDivisor);
+
+              price = pgege.dividedBy(pgigi).toNumber(); //(geq / getDivisor) / (giq / giveDivisor)
 
               swapDivider = true;
             } else if (itm.give_asset === get && itm.get_asset === give) {
@@ -691,7 +694,10 @@ var VexLib = function (_EventEmitter) {
                 geq = itm.give_quantity - itm.give_remaining;
               }
 
-              price = geq / giveDivisor / (giq / getDivisor); //(giq / giveDivisor) / (geq / getDivisor)
+              var pgige = new _bignumber.BigNumber(giq).dividedBy(getDivisor);
+              var pgegi = new _bignumber.BigNumber(geq).dividedBy(giveDivisor).dividedBy(pgige);
+
+              price = pgegi.toNumber(); //(geq / giveDivisor) / (giq / getDivisor) //(giq / giveDivisor) / (geq / getDivisor)
             } else {
               return undefined;
             }

@@ -261,6 +261,8 @@ export default class VexLib extends EventEmitter {
           } else {
             cb(null, data.data)
           }
+
+          delete this.cbList[data.seq]
         }
       } else {
         console.log('Message not expected', data.seq)
@@ -571,7 +573,10 @@ export default class VexLib extends EventEmitter {
               geq = itm.get_quantity - itm.get_remaining
             }
 
-            price = (geq / getDivisor) / (giq / giveDivisor)
+            let pgege = new BigNumber(geq).dividedBy(getDivisor)
+            let pgigi = new BigNumber(giq).dividedBy(giveDivisor)
+
+            price = pgege.dividedBy(pgigi).toNumber() //(geq / getDivisor) / (giq / giveDivisor)
 
             swapDivider = true
           } else if (itm.give_asset === get && itm.get_asset === give) {
@@ -588,7 +593,10 @@ export default class VexLib extends EventEmitter {
               geq = itm.give_quantity - itm.give_remaining
             }
 
-            price = (geq / giveDivisor) / (giq / getDivisor) //(giq / giveDivisor) / (geq / getDivisor)
+            let pgige = new BigNumber(giq).dividedBy(getDivisor)
+            let pgegi = new BigNumber(geq).dividedBy(giveDivisor).dividedBy(pgige)
+
+            price = pgegi.toNumber() //(geq / giveDivisor) / (giq / getDivisor) //(giq / giveDivisor) / (geq / getDivisor)
           } else {
             return undefined
           }
