@@ -436,7 +436,8 @@ export default class VexLib extends EventEmitter {
       if (err) {
         cb(err)
       } else {
-        cb(null, data.result.length > 0)
+        console.log(data)
+        cb(null, data.result && data.result.length > 0)
       }
     })
   }
@@ -1593,7 +1594,7 @@ export default class VexLib extends EventEmitter {
       if (err) {
         cb(err)
       } else {
-        cb(null, data.result)
+        cb(null, data.result.filter(x => !((x[0] === 'A') || (x[x.length-1] !== 'T')) ))
       }
     })
   }
