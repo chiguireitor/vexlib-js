@@ -195,7 +195,8 @@ export default class VexLib extends EventEmitter {
     this.lastVexSeq = 0
     this.cbList = {}
     this.fiatTokensDivisor = {
-      VEFT: 100
+      VEFT: 100,
+      VEST: 100
     }
 
     this._is_connected_ = false

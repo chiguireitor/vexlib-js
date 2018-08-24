@@ -95,7 +95,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "141";
+var build = "142";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -300,7 +300,8 @@ var VexLib = function (_EventEmitter) {
     _this.lastVexSeq = 0;
     _this.cbList = {};
     _this.fiatTokensDivisor = {
-      VEFT: 100
+      VEFT: 100,
+      VEST: 100
     };
 
     _this._is_connected_ = false;
