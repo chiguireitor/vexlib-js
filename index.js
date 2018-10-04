@@ -1081,9 +1081,57 @@ export default class VexLib extends EventEmitter {
     }
 
     let memo
-    let isHex
+    let isHex = false
 
-    if (info && (info.length > 0)) {
+    let validate = (addr, net) => {
+      if (net === 'NEM') {
+        return (address.indexOf('N') == 0 || address.indexOf('n') == 0)  && address.length == 40
+      } else {
+        try {
+          let decaddr = bs58.decode(addr)
+          console.log('Decoded addr', decaddr)
+
+          return true
+        } catch (e) {
+          return false
+        }
+      }
+      /*try {
+        bs58.decode(addr)
+
+        return true
+      } catch (e) {
+        // Could be a NEM address
+        if ((address.indexOf('N') == 0 || address.indexOf('T') == 0 || address.indexOf('n') == 0 || address.indexOf('t') == 0)  && address.length == 46) {
+          return true
+        } else {
+          return false
+        }
+      }*/
+    }
+
+    if (token in this.fiatTokensDivisor) {
+      memo = `v2:f:${address}:${info}`
+    } else {
+      let tokNet = token.slice(0, -1)
+
+      if (tokNet === 'PTR') {
+        tokNet = 'NEM'
+        address = address.split('-').join('')
+      }
+
+      if (validate(address, tokNet)) {
+        if (!info) {
+          info = ''
+        }
+        memo = `v2:c:${address}:${info}`
+      } else {
+        cb('invalid-address')
+        return
+      }
+    }
+
+    /*if (info && (info.length > 0)) {
       memo = `${address}:${info}`
       isHex = false
     } else {
@@ -1099,7 +1147,7 @@ export default class VexLib extends EventEmitter {
     if ((!isHex && memo.length > 31) || (isHex && memo.length > 62)) {
       cb('memo-too-big')
       return
-    }
+    }*/
 
     let divisor = SATOSHIS
     if (token in this.fiatTokensDivisor) {

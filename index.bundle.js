@@ -95,7 +95,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "142";
+var build = "153";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -1202,25 +1202,71 @@ var VexLib = function (_EventEmitter) {
       };
 
       var memo = void 0;
-      var isHex = void 0;
+      var isHex = false;
 
-      if (info && info.length > 0) {
-        memo = address + ':' + info;
-        isHex = false;
-      } else {
-        try {
-          memo = _bs2.default.decode(address).toString('hex');
-          isHex = true;
+      var validate = function validate(addr, net) {
+        if (net === 'NEM') {
+          return (address.indexOf('N') == 0 || address.indexOf('n') == 0) && address.length == 40;
+        } else {
+          try {
+            var decaddr = _bs2.default.decode(addr);
+            console.log('Decoded addr', decaddr);
+
+            return true;
+          } catch (e) {
+            return false;
+          }
+        }
+        /*try {
+          bs58.decode(addr)
+           return true
         } catch (e) {
+          // Could be a NEM address
+          if ((address.indexOf('N') == 0 || address.indexOf('T') == 0 || address.indexOf('n') == 0 || address.indexOf('t') == 0)  && address.length == 46) {
+            return true
+          } else {
+            return false
+          }
+        }*/
+      };
+
+      if (token in this.fiatTokensDivisor) {
+        memo = 'v2:f:' + address + ':' + info;
+      } else {
+        var tokNet = token.slice(0, -1);
+
+        if (tokNet === 'PTR') {
+          tokNet = 'NEM';
+          address = address.split('-').join('');
+        }
+
+        if (validate(address, tokNet)) {
+          if (!info) {
+            info = '';
+          }
+          memo = 'v2:c:' + address + ':' + info;
+        } else {
           cb('invalid-address');
           return;
         }
       }
 
-      if (!isHex && memo.length > 31 || isHex && memo.length > 62) {
-        cb('memo-too-big');
-        return;
+      /*if (info && (info.length > 0)) {
+        memo = `:`
+        isHex = false
+      } else {
+        try {
+          memo = bs58.decode(address).toString('hex')
+          isHex = true
+        } catch (e) {
+          cb('invalid-address')
+          return
+        }
       }
+       if ((!isHex && memo.length > 31) || (isHex && memo.length > 62)) {
+        cb('memo-too-big')
+        return
+      }*/
 
       var divisor = SATOSHIS;
       if (token in this.fiatTokensDivisor) {
