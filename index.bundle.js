@@ -95,7 +95,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "153";
+var build = "154";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -385,6 +385,7 @@ var VexLib = function (_EventEmitter) {
       this.socket.on('db', vexApiHandler);
       this.socket.on('ldb', vexApiHandler);
       this.socket.on('banks', vexApiHandler);
+      this.socket.on('indexer', vexApiHandler);
     }
   }, {
     key: '_api_',
@@ -441,6 +442,11 @@ var VexLib = function (_EventEmitter) {
     key: 'banks',
     value: function banks(method, params, cb) {
       this._api_('banks', method, params, cb);
+    }
+  }, {
+    key: 'indexer',
+    value: function indexer(method, params, cb) {
+      this._api_('indexer', method, params, cb);
     }
   }, {
     key: 'signAndBroadcastTransaction',

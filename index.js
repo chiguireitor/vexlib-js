@@ -275,6 +275,7 @@ export default class VexLib extends EventEmitter {
     this.socket.on('db', vexApiHandler)
     this.socket.on('ldb', vexApiHandler)
     this.socket.on('banks', vexApiHandler)
+    this.socket.on('indexer', vexApiHandler)
   }
 
   _socket_connect_ = () => {
@@ -354,6 +355,10 @@ export default class VexLib extends EventEmitter {
 
   banks(method, params, cb) {
     this._api_('banks', method, params, cb)
+  }
+
+  indexer(method, params, cb) {
+    this._api_('indexer', method, params, cb)
   }
 
   signAndBroadcastTransaction(rawtx, cb) {
