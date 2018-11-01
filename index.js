@@ -116,6 +116,26 @@ function getKeyPairFromSessionStorage() {
 
 var devices = {}
 
+function buildAndSign(keyPair, tx, cb) {
+  let builder = new bitcoin.TransactionBuilder(bitcoin.networks.testnet)
+
+  tx.ins.forEach(vin => {
+    builder.addInput(vin.hash.reverse().toString('hex'), vin.index)
+  })
+
+  tx.outs.forEach(vout => {
+    builder.addOutput(vout.script, vout.value)
+  })
+
+  for (let i=0; i < tx.ins.length; i++) {
+    builder.sign(i, keyPair)
+  }
+
+  let built = builder.build()
+
+  cb(built.toHex())
+}
+
 function signTransaction(rawHex, cb) {
   let tx = bitcoin.Transaction.fromHex(rawHex)
   let device = sessionStorage.getItem('device')
@@ -124,23 +144,7 @@ function signTransaction(rawHex, cb) {
   if ((device === 'userpass') || (device === null)) {
     let keyPair = getKeyPairFromSessionStorage()
 
-    let builder = new bitcoin.TransactionBuilder(bitcoin.networks.testnet)
-
-    tx.ins.forEach(vin => {
-      builder.addInput(vin.hash.reverse().toString('hex'), vin.index)
-    })
-
-    tx.outs.forEach(vout => {
-      builder.addOutput(vout.script, vout.value)
-    })
-
-    for (let i=0; i < tx.ins.length; i++) {
-      builder.sign(i, keyPair)
-    }
-
-    let built = builder.build()
-
-    cb(built.toHex())
+    buildAndSign(keyPair, tx, cb)
   } else if (device === 'trezor') {
     let Trezor = devices[device](0)
 
@@ -1708,6 +1712,56 @@ export default class VexLib extends EventEmitter {
         cb(err)
       } else {
         cb(null, data)
+      }
+    })
+  }
+
+  getWIF() {
+    let device = sessionStorage.getItem('device')
+
+    if ((device === 'userpass') || (device === null)) {
+      let keyPair = getKeyPairFromSessionStorage()
+      if (keyPair) {
+        return keyPair.toWIF()
+      } else {
+        return null
+      }
+    } else {
+      return null
+    }
+  }
+
+  createSendFromWif(wif, quantity, destination, asset, cb) {
+    let keyPair = bitcoin.ECPair.fromWIF(wif, bitcoin.networks.testnet)
+
+    let finish = (rawHex) => {
+      let tx = bitcoin.Transaction.fromHex(rawHex)
+
+      buildAndSign(keyPair, tx, (signed) => {
+        this.axios.post('/vexapi/ext_sendtx', {
+          rawtx: signed
+        }).then((response) => {
+          cb(null, response.data.result)
+        }).catch(err => {
+          cb(err)
+        })
+      })
+    }
+
+    this.vex('create_send', {
+      source: keyPair.getPublicKeyBuffer().toString('hex'),
+      destination, asset, quantity
+    }, (err, data) => {
+      if (err) {
+        console.log('err', err)
+        cb(err)
+      } else if (data.error) {
+        console.log('err', data.error)
+        cb(data.error)
+      } else {
+        console.log('data', data.result)
+        //cb(null, data.result)
+        finish(data.result)
       }
     })
   }

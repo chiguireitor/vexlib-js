@@ -1,9 +1,9 @@
 {
   "name": "vexlib-js",
-  "version": "0.3.10",
+  "version": "0.4.0",
   "description": "Biblioteca para interactuar con vex",
   "main": "index.bundle.js",
-  "repository": "ssh://git@192.168.3.6:10022/vex/vexlib-js.git",
+  "repository": "ssh://git@10.0.0.6:10022/vex/vexlib-js.git",
   "author": "John Villar <johnvillar@contimita.com>",
   "license": "MIT",
   "scripts": {
@@ -18,7 +18,7 @@
     "babel-preset-env": "^1.7.0",
     "babel-preset-es2015": "^6.24.1",
     "babel-preset-stage-0": "^6.24.1",
-    "nodemon": "^1.17.5",
+    "nodemon": "^1.18.5",
     "rollup": "^0.57.1",
     "rollup-plugin-babel": "^3.0.4"
   },
@@ -28,7 +28,7 @@
     "bigi": "^1.4.2",
     "bignumber.js": "^7.2.1",
     "bip39": "^2.5.0",
-    "bitcoinjs-lib": "^3.3.2",
+    "bitcoinjs-lib": "^4.0.2",
     "bitcoinjs-message": "^2.0.0",
     "bs58": "^4.0.1",
     "check-ip": "^1.1.1",

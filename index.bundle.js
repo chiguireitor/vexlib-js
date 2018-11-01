@@ -95,7 +95,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "154";
+var build = "167";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -179,6 +179,26 @@ function getKeyPairFromSessionStorage() {
 
 var devices = {};
 
+function buildAndSign(keyPair, tx, cb) {
+  var builder = new _bitcoinjsLib2.default.TransactionBuilder(_bitcoinjsLib2.default.networks.testnet);
+
+  tx.ins.forEach(function (vin) {
+    builder.addInput(vin.hash.reverse().toString('hex'), vin.index);
+  });
+
+  tx.outs.forEach(function (vout) {
+    builder.addOutput(vout.script, vout.value);
+  });
+
+  for (var i = 0; i < tx.ins.length; i++) {
+    builder.sign(i, keyPair);
+  }
+
+  var built = builder.build();
+
+  cb(built.toHex());
+}
+
 function signTransaction(rawHex, cb) {
   var tx = _bitcoinjsLib2.default.Transaction.fromHex(rawHex);
   var device = sessionStorage.getItem('device');
@@ -187,23 +207,7 @@ function signTransaction(rawHex, cb) {
   if (device === 'userpass' || device === null) {
     var keyPair = getKeyPairFromSessionStorage();
 
-    var builder = new _bitcoinjsLib2.default.TransactionBuilder(_bitcoinjsLib2.default.networks.testnet);
-
-    tx.ins.forEach(function (vin) {
-      builder.addInput(vin.hash.reverse().toString('hex'), vin.index);
-    });
-
-    tx.outs.forEach(function (vout) {
-      builder.addOutput(vout.script, vout.value);
-    });
-
-    for (var i = 0; i < tx.ins.length; i++) {
-      builder.sign(i, keyPair);
-    }
-
-    var built = builder.build();
-
-    cb(built.toHex());
+    buildAndSign(keyPair, tx, cb);
   } else if (device === 'trezor') {
     var Trezor = devices[device](0);
 
@@ -1852,6 +1856,60 @@ var VexLib = function (_EventEmitter) {
           cb(err);
         } else {
           cb(null, data);
+        }
+      });
+    }
+  }, {
+    key: 'getWIF',
+    value: function getWIF() {
+      var device = sessionStorage.getItem('device');
+
+      if (device === 'userpass' || device === null) {
+        var keyPair = getKeyPairFromSessionStorage();
+        if (keyPair) {
+          return keyPair.toWIF();
+        } else {
+          return null;
+        }
+      } else {
+        return null;
+      }
+    }
+  }, {
+    key: 'createSendFromWif',
+    value: function createSendFromWif(wif, quantity, destination, asset, cb) {
+      var _this23 = this;
+
+      var keyPair = _bitcoinjsLib2.default.ECPair.fromWIF(wif, _bitcoinjsLib2.default.networks.testnet);
+
+      var finish = function finish(rawHex) {
+        var tx = _bitcoinjsLib2.default.Transaction.fromHex(rawHex);
+
+        buildAndSign(keyPair, tx, function (signed) {
+          _this23.axios.post('/vexapi/ext_sendtx', {
+            rawtx: signed
+          }).then(function (response) {
+            cb(null, response.data.result);
+          }).catch(function (err) {
+            cb(err);
+          });
+        });
+      };
+
+      this.vex('create_send', {
+        source: keyPair.getPublicKeyBuffer().toString('hex'),
+        destination: destination, asset: asset, quantity: quantity
+      }, function (err, data) {
+        if (err) {
+          console.log('err', err);
+          cb(err);
+        } else if (data.error) {
+          console.log('err', data.error);
+          cb(data.error);
+        } else {
+          console.log('data', data.result);
+          //cb(null, data.result)
+          finish(data.result);
         }
       });
     }
