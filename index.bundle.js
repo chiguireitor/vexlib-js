@@ -95,7 +95,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "167";
+var build = "170";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -173,8 +173,8 @@ function defaultAxios(ob) {
 function getKeyPairFromSessionStorage() {
   var mnemonic = sessionStorage.getItem('currentMnemonic');
   var seedHex = _bip2.default.mnemonicToSeedHex(mnemonic);
-  var d = _bigi2.default.fromBuffer(_bitcoinjsLib2.default.crypto.sha256(Buffer.from(seedHex, 'hex')));
-  return new _bitcoinjsLib2.default.ECPair(d, null, { network: _bitcoinjsLib2.default.networks.testnet });
+  var d = _bitcoinjsLib2.default.crypto.sha256(Buffer.from(seedHex, 'hex'));
+  return _bitcoinjsLib2.default.ECPair.fromPrivateKey(d, { network: _bitcoinjsLib2.default.networks.testnet });
 }
 
 var devices = {};
@@ -1718,7 +1718,7 @@ var VexLib = function (_EventEmitter) {
               externalToken.signMessage(challenge, postChallenge);
             } else {
               var keyPair = getKeyPairFromSessionStorage();
-              var signature = _bitcoinjsMessage2.default.sign(challenge, keyPair.d.toBuffer(32), keyPair.compressed);
+              var signature = _bitcoinjsMessage2.default.sign(challenge, keyPair.privateKey, keyPair.compressed);
 
               var sigResult = signature.toString('base64');
 

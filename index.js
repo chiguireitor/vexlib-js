@@ -110,8 +110,8 @@ function defaultAxios(ob) {
 function getKeyPairFromSessionStorage() {
   let mnemonic = sessionStorage.getItem('currentMnemonic')
   let seedHex = bip39.mnemonicToSeedHex(mnemonic)
-  let d = bigi.fromBuffer(bitcoin.crypto.sha256(Buffer.from(seedHex, 'hex')))
-  return new bitcoin.ECPair(d, null, {network: bitcoin.networks.testnet})
+  let d = bitcoin.crypto.sha256(Buffer.from(seedHex, 'hex'))
+  return bitcoin.ECPair.fromPrivateKey(d, {network: bitcoin.networks.testnet})
 }
 
 var devices = {}
@@ -1580,7 +1580,7 @@ export default class VexLib extends EventEmitter {
             externalToken.signMessage(challenge, postChallenge)
           } else {
             let keyPair = getKeyPairFromSessionStorage()
-            let signature = bitcoinMessage.sign(challenge, keyPair.d.toBuffer(32), keyPair.compressed)
+            let signature = bitcoinMessage.sign(challenge, keyPair.privateKey, keyPair.compressed)
 
             let sigResult = signature.toString('base64')
 
