@@ -39,6 +39,14 @@ const build="${BUILD}"
 
 export const SATOSHIS = 100000000
 
+const bip39SpanishFix = {
+  "á": "á",
+  "é": "é",
+  "í": "í",
+  "ó": "ó",
+  "ú": "ú"
+}
+
 const divideLimited = (val, divisor) => {
   return Math.floor(val) / divisor
 }
@@ -107,9 +115,29 @@ function defaultAxios(ob) {
   return axios.create(ob)
 }
 
+const fixList = bip39.wordlists.spanish.filter(x => x !== x.normalize()).map(x => [x, x.normalize('NFD').replace(/[\u0300-\u036f]/g, "")])
+function fixAccents(w) {
+  if (w) {
+    let words = w.split(" ")
+    words = words.map(ow => {
+      let idx = fixList.findIndex(p => p[1] === ow)
+
+      if (idx >= 0) {
+        return fixList[idx][0]
+      } else {
+        return ow
+      }
+    })
+
+    return words.join(" ")
+  } else {
+    return w
+  }
+}
+
 function getKeyPairFromSessionStorage() {
   let mnemonic = sessionStorage.getItem('currentMnemonic')
-  let seedHex = bip39.mnemonicToSeedHex(mnemonic)
+  let seedHex = bip39.mnemonicToSeedHex(fixAccents(mnemonic))
   let d = bitcoin.crypto.sha256(Buffer.from(seedHex, 'hex'))
   return bitcoin.ECPair.fromPrivateKey(d, {network: bitcoin.networks.testnet})
 }
@@ -280,6 +308,7 @@ export default class VexLib extends EventEmitter {
     this.socket.on('ldb', vexApiHandler)
     this.socket.on('banks', vexApiHandler)
     this.socket.on('indexer', vexApiHandler)
+    this.socket.on('proxy', vexApiHandler)
   }
 
   _socket_connect_ = () => {
@@ -363,6 +392,10 @@ export default class VexLib extends EventEmitter {
 
   indexer(method, params, cb) {
     this._api_('indexer', method, params, cb)
+  }
+
+  proxy(method, params, cb) {
+    this._api_('proxy', method, params, cb)
   }
 
   signAndBroadcastTransaction(rawtx, cb) {
@@ -452,7 +485,45 @@ export default class VexLib extends EventEmitter {
     })
   }
 
+  proxy_getOrderBook(give, get, isBid, cb) {
+    let pair = (give + '/' + get)
+    this.proxy(this.proxyPairs[pair] + 'order_book', {
+      give, get, isBid
+    }, (err, data) => {
+      if (err) {
+        console.log('PGOB err', err)
+        cb(err)
+      } else {
+        let book = isBid?data.bids:data.asks
+
+        cb(null, {giveAsset: give, getAsset: get, book: book.map(x => {
+            let funds = parseFloat(x.price) * parseFloat(x.volume)
+            let remaining_give = funds * parseFloat(x.remaining_volume) / parseFloat(x.volume)
+            return {
+              rawGive: funds * SATOSHIS,
+              rawGet: parseFloat(x.volume) * SATOSHIS,
+              give: remaining_give,
+              get: x.remaining_volume,
+              price: x.price
+            }
+          })
+        })
+      }
+    })
+  }
+
   getOrderBook(give, get, isBid, cb) {
+    let proxyGive = give.slice(0, -1)
+    let proxyGet = get.slice(0, -1)
+    if (!isBid) {
+      [ proxyGive, proxyGet ] = [ proxyGet, proxyGive ]
+    }
+
+    let pair = proxyGive + '/' + proxyGet
+    if (this.proxyPairs && pair in this.proxyPairs) {
+      this.proxy_getOrderBook(proxyGive, proxyGet, isBid, cb)
+      return
+    }
     this.vex('get_orders', {
       filters: [
         {
@@ -534,21 +605,95 @@ export default class VexLib extends EventEmitter {
   }
 
   getBlockTimes(data, cb) {
-    this.axios.post(`/vexapi/blocktimes`, {
-      data: data.map(x => x.block)
-    }).then((btimes) => {
-      let mapping = {}
-      btimes.data.forEach(x => {
-        mapping[x.block_index] = x.time
+    this.getBlockTimesAsync(data)
+      .then(result => {
+        cb(result)
       })
-      cb(data.map( x => ({ time: mapping[x.block] * 1000, ...x}) ))
-    }).catch((err) => {
-      console.log(err)
-      cb(data)
+      .catch(err => {
+        cb(data)
+      })
+
+      /*this.axios.post(`/vexapi/blocktimes`, {
+        data: data.map(x => x.block)
+      }).then((btimes) => {
+        let mapping = {}
+        btimes.data.forEach(x => {
+          mapping[x.block_index] = x.time
+        })
+        cb(data.map( x => ({ time: mapping[x.block] * 1000, ...x}) ))
+      }).catch((err) => {
+        console.log(err)
+        cb(data)
+      })*/
+  }
+
+  async getBlockTimesAsync(data) {
+    let mapping = {}
+
+    try {
+      let bindices = data.map(x => x.block)
+      let getBtime = (block) => {
+        return new Promise((resolve, reject) => {
+          this.indexer('blocktime', { height: block }, (err, data) => {
+            if (err) {
+              reject(err)
+            } else {
+              resolve(data)
+            }
+          })
+        })
+      }
+
+      let btimes = await Promise.all(bindices.map(getBtime))
+
+      btimes.forEach(x => {
+        mapping[x.height] = Math.round(x.time/1000)
+      })
+    } catch(e) {
+      console.log('getBlockTimes exception', e)
+      throw e
+    }
+
+    return data.map( x => ({ time: mapping[x.block] * 1000, ...x}) )
+  }
+
+  _recentOrders_proxyPair_(give, get, filters, cb) {
+    let endpoint = 'get_orders'
+    if (filters.filter(x => x.field === 'source' && x.value === sessionStorage.getItem('currentAddress')).length > 0) {
+      endpoint = 'get_my_orders'
+    }
+
+    this.proxy(this.proxyPairs[give + '/' + get] + endpoint, {
+      give, get, filters
+    }, (err, data) => {
+      if (err) {
+        console.log('ROPP error', err)
+        cb(err)
+      } else {
+        console.log('ROPP', data)
+        cb(null, data.map(x => ({
+          type: 'buy',
+          status: 'filled',
+          block: 'tc',
+          price: x.price,
+          qty: x.funds,
+          total: x.volume,
+          hash: x.id,
+          get: x.volume,
+          give: x.funds,
+          time: new Date(x.created_at)
+        })))
+      }
     })
   }
 
   _recentOrders_(give, get, filters, cb) {
+    let proxyGive = give.slice(0, -1)
+    let proxyGet = get.slice(0, -1)
+    if (this.proxyPairs && ((proxyGive + '/' + proxyGet) in this.proxyPairs)) {
+      this._recentOrders_proxyPair_(proxyGive, proxyGet, filters, cb)
+    }
+
     this.vex('get_orders', {
       filters,
       order_by: 'block_index',
@@ -557,7 +702,6 @@ export default class VexLib extends EventEmitter {
       if (err) {
         cb(err)
       } else {
-        console.log('PrevOrders', data.result)
         let orders = data.result.filter(itm => !itm.status.startsWith('invalid')).map(itm => {
           let type, price, giq, geq
 
@@ -712,7 +856,7 @@ export default class VexLib extends EventEmitter {
 
     let success = ({address, mnemonic}) => {
       sessionStorage.setItem('currentAddress', address)
-      sessionStorage.setItem('currentMnemonic', mnemonic)
+      sessionStorage.setItem('currentMnemonic', fixAccents(mnemonic))
       cb(null, {address, mnemonic})
     }
 
@@ -743,11 +887,12 @@ export default class VexLib extends EventEmitter {
         this.axios.get(`/vexapi/user/${husr}`)
           .then((response) => {
             if (response.status === 200) {
-              decrypt(response.data, (err, data) => {
+              decrypt(response.data.cryptdata, (err, data) => {
                 if (err) {
+                  console.log('Login challenge', response.data.challenge)
                   fail('bad-data-or-bad-password')
                 } else {
-                  store(response.data)
+                  store(response.data.cryptdata)
                   success(data)
                 }
               })
@@ -775,10 +920,10 @@ export default class VexLib extends EventEmitter {
   }
 
   static keyPairFromMnemonic(mnemonic) {
-    let seedHex = bip39.mnemonicToSeedHex(mnemonic)
+    let seedHex = bip39.mnemonicToSeedHex(fixAccents(mnemonic))
 
-    let d = bigi.fromBuffer(bitcoin.crypto.sha256(Buffer.from(seedHex, 'hex')))
-    return new bitcoin.ECPair(d, null, {network: bitcoin.networks.testnet})
+    let d = bitcoin.crypto.sha256(Buffer.from(seedHex, 'hex'))
+    return bitcoin.ECPair.fromPrivateKey(d, {network: bitcoin.networks.testnet})
   }
 
   sendRegisterPkg(userAddress, pkg, cb) {
@@ -819,17 +964,67 @@ export default class VexLib extends EventEmitter {
   }
 
   replaceLocalUser(email, password, mnemonic, uiLang, cb) {
-    sessionStorage.setItem('currentMnemonic', mnemonic)
+    let husr = hash.sha256().update(email).digest('hex')
+    let tries = 2
 
-    this.createUser(email, password, uiLang, cb)
+    let tryReplace = () => {
+      this.axios.get(`/vexapi/user/${husr}`)
+        .then((response) => {
+          let postChallenge = (sigResult) => {
+            if (!sigResult) {
+              console.log('cant sign', sigResult)
+              cb('couldnt-sign')
+            } else {
+              sessionStorage.setItem('currentMnemonic', fixAccents(mnemonic))
+              // TODO: Obtener el usuario guardado en el servidor para tener el challenge y firmarlo
+              this.createUser(email, password, uiLang, sigResult, (err, data) => {
+                if (err && err === 'bad-signature' && tries > 0) {
+                  tries--
+                  setImmediate(tryReplace)
+                } else {
+                  cb(err, data)
+                }
+              })
+            }
+          }
+
+          /*if (externalToken) {
+            sessionStorage.setItem('device', externalToken.getName())
+            externalToken.signMessage(challenge, postChallenge)
+          } else {*/
+            let keyPair = getKeyPairFromSessionStorage()
+            console.log('Challenge to sig:', response.data.challenge)
+            let signature = bitcoinMessage.sign(response.data.challenge, keyPair.privateKey, keyPair.compressed)
+
+            let sigResult = signature.toString('base64')
+
+            postChallenge(sigResult)
+          //}
+        })
+        .catch(err => {
+          if (tries > 0) {
+            tries--
+            setImmediate(tryReplace)
+          } else {
+            cb(err)
+          }
+        })
+      }
+
+    tryReplace()
   }
 
-  createUser(email, password, uiLang, cb) {
+  createUser(email, password, uiLang, signature, cb) {
     let externalToken = null
 
     if (typeof(password) === "object") {
       externalToken = password
       password = null
+    }
+
+    if (typeof(cb) === "undefined") {
+      cb = signature
+      signature = null
     }
 
     let itemKey = `_user_data_${email}_`
@@ -854,7 +1049,7 @@ export default class VexLib extends EventEmitter {
         } else {
           sessionStorage.setItem('device', 'userpass')
           sessionStorage.setItem('currentAddress', address)
-          sessionStorage.setItem('currentMnemonic', mnemonic)
+          sessionStorage.setItem('currentMnemonic', fixAccents(mnemonic))
           localStorage.setItem(itemKey, encryptedHex)
           let keyPair = VexLib.keyPairFromMnemonic(mnemonic)
           cb(null, {address, mnemonic, keyPair})
@@ -865,10 +1060,14 @@ export default class VexLib extends EventEmitter {
         userid: husr,
         email,
         cryptdata: encryptedHex,
-        address
+        address, signature
       }).then((response) => {
         if (response.status === 200) {
-          success()
+          if (response.data.error) {
+            fail(response.data.error)
+          } else {
+            success()
+          }
         } else {
           fail()
         }
@@ -896,7 +1095,7 @@ export default class VexLib extends EventEmitter {
       }
 
       let keyPair = VexLib.keyPairFromMnemonic(mnemonic)
-      let address = keyPair.getAddress()
+      let {address} = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey, network: bitcoin.networks.testnet }) //keyPair.getAddress()
 
       let pkg = {address, mnemonic, lang: uiLang}
       let msg = JSON.stringify(pkg)
@@ -1191,6 +1390,96 @@ export default class VexLib extends EventEmitter {
     }).catch((err) => {
       fail(err)
     })
+  }
+
+  generateTransfer(token, amount, destination, memo, cb) {
+    let currentAddress = sessionStorage.getItem('currentAddress')
+
+    if (!currentAddress) {
+      cb('login-first')
+      this.emit('need-login')
+      return
+    }
+
+    let fail = (err) => {
+      if (err.response && (err.response.status === 401)) {
+        this.emit('need-login')
+      }
+
+      cb(err || 'error-generating-transfer')
+    }
+
+    let success = (txid) => {
+      cb(null, txid)
+    }
+
+    let validate = (addr, net) => {
+      try {
+        let decaddr = bs58.decode(addr)
+        console.log('Decoded addr', decaddr)
+
+        return true
+      } catch (e) {
+        return false
+      }
+    }
+
+    let divisor = SATOSHIS
+    if (token in this.fiatTokensDivisor) {
+      divisor = this.fiatTokensDivisor[token]
+    }
+    amount = Math.round(parseFloat(amount) * divisor)
+
+    this.vex('create_send', {
+      source: currentAddress,
+      destination, asset: token, quantity: amount, memo
+    }, (err, data) => {
+      if (err) {
+        console.log('err', err)
+        fail(err)
+      } else if (data.error) {
+        console.log('err', data.error)
+        fail(data.error)
+      } else {
+        signTransaction(data.result, (signed) => {
+          this.axios.post('/vexapi/sendtx', {
+            rawtx: signed
+          }).then((response) => {
+            success(response.data.result)
+          }).catch((err) => {
+            fail(err)
+          })
+        })
+      }
+    })
+
+    /*this.axios.post('/vexapi/withdraw', {
+      "asset": token,
+      "quantity": amount,
+      "memo": memo,
+      "memo_is_hex": isHex,
+      "source": currentAddress
+    }).then((response) => {
+      if (response.status === 200) {
+        if (response.data.error) {
+          fail(response.data.error)
+        } else if (!response.data) {
+          fail(response.error)
+        } else {
+          signTransaction(response.data.result, (signed) => {
+            this.axios.post('/vexapi/sendtx', {
+              rawtx: signed
+            }).then((response) => {
+              success(response.data.result)
+            })
+          })
+        }
+      } else {
+        fail('error-building-tx')
+      }
+    }).catch((err) => {
+      fail(err)
+    })*/
   }
 
   generateCodeWithdrawal(token, amount, code, cb) {

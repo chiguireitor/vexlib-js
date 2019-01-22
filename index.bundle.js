@@ -5,37 +5,57 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.SATOSHIS = undefined;
 
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+var _typeof2 = require('babel-runtime/helpers/typeof');
 
-var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+var _typeof3 = _interopRequireDefault(_typeof2);
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var _stringify = require('babel-runtime/core-js/json/stringify');
 
-var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }(); /**
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * Copyright 2018 Sistemas Timitacon C.A.
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          *
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * Permission is hereby granted, free of charge, to any person obtaining a copy
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * of this software and associated documentation files (the "Software"), to
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * deal in the Software without restriction, including without limitation the
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * sell copies of the Software, and to permit persons to whom the Software is
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * furnished to do so, subject to the following conditions:
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          *
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * The above copyright notice and this permission notice shall be included in
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * all copies or substantial portions of the Software.
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          *
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * IN THE SOFTWARE.
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          *
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          * Original Author: johnvillar@contimita.com
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          *
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          **/
+var _stringify2 = _interopRequireDefault(_stringify);
 
+var _regenerator = require('babel-runtime/regenerator');
+
+var _regenerator2 = _interopRequireDefault(_regenerator);
+
+var _extends2 = require('babel-runtime/helpers/extends');
+
+var _extends3 = _interopRequireDefault(_extends2);
+
+var _promise = require('babel-runtime/core-js/promise');
+
+var _promise2 = _interopRequireDefault(_promise);
+
+var _asyncToGenerator2 = require('babel-runtime/helpers/asyncToGenerator');
+
+var _asyncToGenerator3 = _interopRequireDefault(_asyncToGenerator2);
+
+var _setImmediate2 = require('babel-runtime/core-js/set-immediate');
+
+var _setImmediate3 = _interopRequireDefault(_setImmediate2);
+
+var _getPrototypeOf = require('babel-runtime/core-js/object/get-prototype-of');
+
+var _getPrototypeOf2 = _interopRequireDefault(_getPrototypeOf);
+
+var _classCallCheck2 = require('babel-runtime/helpers/classCallCheck');
+
+var _classCallCheck3 = _interopRequireDefault(_classCallCheck2);
+
+var _possibleConstructorReturn2 = require('babel-runtime/helpers/possibleConstructorReturn');
+
+var _possibleConstructorReturn3 = _interopRequireDefault(_possibleConstructorReturn2);
+
+var _createClass2 = require('babel-runtime/helpers/createClass');
+
+var _createClass3 = _interopRequireDefault(_createClass2);
+
+var _inherits2 = require('babel-runtime/helpers/inherits');
+
+var _inherits3 = _interopRequireDefault(_inherits2);
+
+var _slicedToArray2 = require('babel-runtime/helpers/slicedToArray');
+
+var _slicedToArray3 = _interopRequireDefault(_slicedToArray2);
 
 exports.limitNDecimals = limitNDecimals;
 exports.sanitizeNDecimals = sanitizeNDecimals;
@@ -89,15 +109,41 @@ var _bignumber = require('bignumber.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var build = "170";
+/**
+ * Copyright 2018 Sistemas Timitacon C.A.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ *
+ * Original Author: johnvillar@contimita.com
+ *
+ **/
+var build = "236";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
+
+var bip39SpanishFix = {
+  "á": "á",
+  "é": "é",
+  "í": "í",
+  "ó": "ó",
+  "ú": "ú"
+};
 
 var divideLimited = function divideLimited(val, divisor) {
   return Math.floor(val) / divisor;
@@ -144,7 +190,7 @@ function softLimit8Decimals(v) {
       return v;
     } else {
       var _v = v.split('.'),
-          _v = _slicedToArray(_v, 2),
+          _v = (0, _slicedToArray3.default)(_v, 2),
           i = _v[0],
           d = _v[1];
 
@@ -170,9 +216,35 @@ function defaultAxios(ob) {
   return _axios2.default.create(ob);
 }
 
+var fixList = _bip2.default.wordlists.spanish.filter(function (x) {
+  return x !== x.normalize();
+}).map(function (x) {
+  return [x, x.normalize('NFD').replace(/[\u0300-\u036f]/g, "")];
+});
+function fixAccents(w) {
+  if (w) {
+    var words = w.split(" ");
+    words = words.map(function (ow) {
+      var idx = fixList.findIndex(function (p) {
+        return p[1] === ow;
+      });
+
+      if (idx >= 0) {
+        return fixList[idx][0];
+      } else {
+        return ow;
+      }
+    });
+
+    return words.join(" ");
+  } else {
+    return w;
+  }
+}
+
 function getKeyPairFromSessionStorage() {
   var mnemonic = sessionStorage.getItem('currentMnemonic');
-  var seedHex = _bip2.default.mnemonicToSeedHex(mnemonic);
+  var seedHex = _bip2.default.mnemonicToSeedHex(fixAccents(mnemonic));
   var d = _bitcoinjsLib2.default.crypto.sha256(Buffer.from(seedHex, 'hex'));
   return _bitcoinjsLib2.default.ECPair.fromPrivateKey(d, { network: _bitcoinjsLib2.default.networks.testnet });
 }
@@ -229,9 +301,8 @@ function signTransaction(rawHex, cb) {
 var _singleton = null;
 
 var VexLib = function (_EventEmitter) {
-  _inherits(VexLib, _EventEmitter);
-
-  _createClass(VexLib, [{
+  (0, _inherits3.default)(VexLib, _EventEmitter);
+  (0, _createClass3.default)(VexLib, [{
     key: 'registerDeviceProvider',
     value: function registerDeviceProvider(name, proto) {
       devices[name] = proto;
@@ -256,9 +327,9 @@ var VexLib = function (_EventEmitter) {
   }]);
 
   function VexLib(options) {
-    _classCallCheck(this, VexLib);
+    (0, _classCallCheck3.default)(this, VexLib);
 
-    var _this = _possibleConstructorReturn(this, (VexLib.__proto__ || Object.getPrototypeOf(VexLib)).call(this));
+    var _this = (0, _possibleConstructorReturn3.default)(this, (VexLib.__proto__ || (0, _getPrototypeOf2.default)(VexLib)).call(this));
 
     _this._socket_connect_ = function () {
       console.log('Socket connected');
@@ -268,7 +339,7 @@ var VexLib = function (_EventEmitter) {
         var call = _this._call_list_.shift();
         if (call) {
           call();
-          setImmediate(consumeCallList);
+          (0, _setImmediate3.default)(consumeCallList);
         }
       };
 
@@ -341,7 +412,7 @@ var VexLib = function (_EventEmitter) {
     return _this;
   }
 
-  _createClass(VexLib, [{
+  (0, _createClass3.default)(VexLib, [{
     key: 'tokenDivisor',
     value: function tokenDivisor(tkn) {
       if (tkn in this.fiatTokensDivisor) {
@@ -390,6 +461,7 @@ var VexLib = function (_EventEmitter) {
       this.socket.on('ldb', vexApiHandler);
       this.socket.on('banks', vexApiHandler);
       this.socket.on('indexer', vexApiHandler);
+      this.socket.on('proxy', vexApiHandler);
     }
   }, {
     key: '_api_',
@@ -451,6 +523,11 @@ var VexLib = function (_EventEmitter) {
     key: 'indexer',
     value: function indexer(method, params, cb) {
       this._api_('indexer', method, params, cb);
+    }
+  }, {
+    key: 'proxy',
+    value: function proxy(method, params, cb) {
+      this._api_('proxy', method, params, cb);
     }
   }, {
     key: 'signAndBroadcastTransaction',
@@ -545,10 +622,51 @@ var VexLib = function (_EventEmitter) {
       });
     }
   }, {
+    key: 'proxy_getOrderBook',
+    value: function proxy_getOrderBook(give, get, isBid, cb) {
+      var pair = give + '/' + get;
+      this.proxy(this.proxyPairs[pair] + 'order_book', {
+        give: give, get: get, isBid: isBid
+      }, function (err, data) {
+        if (err) {
+          console.log('PGOB err', err);
+          cb(err);
+        } else {
+          var book = isBid ? data.bids : data.asks;
+
+          cb(null, { giveAsset: give, getAsset: get, book: book.map(function (x) {
+              var funds = parseFloat(x.price) * parseFloat(x.volume);
+              var remaining_give = funds * parseFloat(x.remaining_volume) / parseFloat(x.volume);
+              return {
+                rawGive: funds * SATOSHIS,
+                rawGet: parseFloat(x.volume) * SATOSHIS,
+                give: remaining_give,
+                get: x.remaining_volume,
+                price: x.price
+              };
+            })
+          });
+        }
+      });
+    }
+  }, {
     key: 'getOrderBook',
     value: function getOrderBook(give, get, isBid, cb) {
       var _this6 = this;
 
+      var proxyGive = give.slice(0, -1);
+      var proxyGet = get.slice(0, -1);
+      if (!isBid) {
+        var _ref = [proxyGet, proxyGive];
+        proxyGive = _ref[0];
+        proxyGet = _ref[1];
+      }
+
+      var pair = proxyGive + '/' + proxyGet;
+      if (this.proxyPairs && pair in this.proxyPairs) {
+        this.proxy_getOrderBook(proxyGive, proxyGet, isBid, cb);
+        return;
+      }
       this.vex('get_orders', {
         filters: [{
           field: 'give_asset',
@@ -626,27 +744,138 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getBlockTimes',
     value: function getBlockTimes(data, cb) {
-      this.axios.post('/vexapi/blocktimes', {
-        data: data.map(function (x) {
-          return x.block;
-        })
-      }).then(function (btimes) {
-        var mapping = {};
-        btimes.data.forEach(function (x) {
-          mapping[x.block_index] = x.time;
-        });
-        cb(data.map(function (x) {
-          return _extends({ time: mapping[x.block] * 1000 }, x);
-        }));
+      this.getBlockTimesAsync(data).then(function (result) {
+        cb(result);
       }).catch(function (err) {
-        console.log(err);
         cb(data);
+      });
+
+      /*this.axios.post(`/vexapi/blocktimes`, {
+        data: data.map(x => x.block)
+      }).then((btimes) => {
+        let mapping = {}
+        btimes.data.forEach(x => {
+          mapping[x.block_index] = x.time
+        })
+        cb(data.map( x => ({ time: mapping[x.block] * 1000, ...x}) ))
+      }).catch((err) => {
+        console.log(err)
+        cb(data)
+      })*/
+    }
+  }, {
+    key: 'getBlockTimesAsync',
+    value: function () {
+      var _ref2 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee(data) {
+        var _this7 = this;
+
+        var mapping, bindices, getBtime, btimes;
+        return _regenerator2.default.wrap(function _callee$(_context) {
+          while (1) {
+            switch (_context.prev = _context.next) {
+              case 0:
+                mapping = {};
+                _context.prev = 1;
+                bindices = data.map(function (x) {
+                  return x.block;
+                });
+
+                getBtime = function getBtime(block) {
+                  return new _promise2.default(function (resolve, reject) {
+                    _this7.indexer('blocktime', { height: block }, function (err, data) {
+                      if (err) {
+                        reject(err);
+                      } else {
+                        resolve(data);
+                      }
+                    });
+                  });
+                };
+
+                _context.next = 6;
+                return _promise2.default.all(bindices.map(getBtime));
+
+              case 6:
+                btimes = _context.sent;
+
+
+                btimes.forEach(function (x) {
+                  mapping[x.height] = Math.round(x.time / 1000);
+                });
+                _context.next = 14;
+                break;
+
+              case 10:
+                _context.prev = 10;
+                _context.t0 = _context['catch'](1);
+
+                console.log('getBlockTimes exception', _context.t0);
+                throw _context.t0;
+
+              case 14:
+                return _context.abrupt('return', data.map(function (x) {
+                  return (0, _extends3.default)({ time: mapping[x.block] * 1000 }, x);
+                }));
+
+              case 15:
+              case 'end':
+                return _context.stop();
+            }
+          }
+        }, _callee, this, [[1, 10]]);
+      }));
+
+      function getBlockTimesAsync(_x) {
+        return _ref2.apply(this, arguments);
+      }
+
+      return getBlockTimesAsync;
+    }()
+  }, {
+    key: '_recentOrders_proxyPair_',
+    value: function _recentOrders_proxyPair_(give, get, filters, cb) {
+      var endpoint = 'get_orders';
+      if (filters.filter(function (x) {
+        return x.field === 'source' && x.value === sessionStorage.getItem('currentAddress');
+      }).length > 0) {
+        endpoint = 'get_my_orders';
+      }
+
+      this.proxy(this.proxyPairs[give + '/' + get] + endpoint, {
+        give: give, get: get, filters: filters
+      }, function (err, data) {
+        if (err) {
+          console.log('ROPP error', err);
+          cb(err);
+        } else {
+          console.log('ROPP', data);
+          cb(null, data.map(function (x) {
+            return {
+              type: 'buy',
+              status: 'filled',
+              block: 'tc',
+              price: x.price,
+              qty: x.funds,
+              total: x.volume,
+              hash: x.id,
+              get: x.volume,
+              give: x.funds,
+              time: new Date(x.created_at)
+            };
+          }));
+        }
       });
     }
   }, {
     key: '_recentOrders_',
     value: function _recentOrders_(give, get, filters, cb) {
-      var _this7 = this;
+      var _this8 = this;
+
+      var proxyGive = give.slice(0, -1);
+      var proxyGet = get.slice(0, -1);
+      if (this.proxyPairs && proxyGive + '/' + proxyGet in this.proxyPairs) {
+        this._recentOrders_proxyPair_(proxyGive, proxyGet, filters, cb);
+      }
 
       this.vex('get_orders', {
         filters: filters,
@@ -656,7 +885,6 @@ var VexLib = function (_EventEmitter) {
         if (err) {
           cb(err);
         } else {
-          console.log('PrevOrders', data.result);
           var orders = data.result.filter(function (itm) {
             return !itm.status.startsWith('invalid');
           }).map(function (itm) {
@@ -665,11 +893,11 @@ var VexLib = function (_EventEmitter) {
                 giq = void 0,
                 geq = void 0;
 
-            var giveIsFiat = itm.give_asset in _this7.fiatTokensDivisor;
-            var getIsFiat = itm.get_asset in _this7.fiatTokensDivisor;
+            var giveIsFiat = itm.give_asset in _this8.fiatTokensDivisor;
+            var getIsFiat = itm.get_asset in _this8.fiatTokensDivisor;
 
-            var giveDivisor = giveIsFiat ? _this7.fiatTokensDivisor[itm.give_asset] : SATOSHIS;
-            var getDivisor = getIsFiat ? _this7.fiatTokensDivisor[itm.get_asset] : SATOSHIS;
+            var giveDivisor = giveIsFiat ? _this8.fiatTokensDivisor[itm.give_asset] : SATOSHIS;
+            var getDivisor = getIsFiat ? _this8.fiatTokensDivisor[itm.get_asset] : SATOSHIS;
 
             var swapDivider = false;
 
@@ -735,7 +963,7 @@ var VexLib = function (_EventEmitter) {
             return arr;
           }, []);
 
-          _this7.getBlockTimes(orders, function (data) {
+          _this8.getBlockTimes(orders, function (data) {
             cb(null, data);
           });
         }
@@ -810,7 +1038,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getUser',
     value: function getUser(email, password, cb) {
-      var _this8 = this;
+      var _this9 = this;
 
       var itemKey = '_user_data_' + email + '_';
       var userData = localStorage.getItem(itemKey);
@@ -819,12 +1047,12 @@ var VexLib = function (_EventEmitter) {
         cb(msg || 'no-user-found', data);
       };
 
-      var success = function success(_ref) {
-        var address = _ref.address,
-            mnemonic = _ref.mnemonic;
+      var success = function success(_ref3) {
+        var address = _ref3.address,
+            mnemonic = _ref3.mnemonic;
 
         sessionStorage.setItem('currentAddress', address);
-        sessionStorage.setItem('currentMnemonic', mnemonic);
+        sessionStorage.setItem('currentMnemonic', fixAccents(mnemonic));
         cb(null, { address: address, mnemonic: mnemonic });
       };
 
@@ -852,13 +1080,14 @@ var VexLib = function (_EventEmitter) {
       var tryLogin = function tryLogin() {
         if (userData === null) {
           var husr = _hash2.default.sha256().update(email).digest('hex');
-          _this8.axios.get('/vexapi/user/' + husr).then(function (response) {
+          _this9.axios.get('/vexapi/user/' + husr).then(function (response) {
             if (response.status === 200) {
-              decrypt(response.data, function (err, data) {
+              decrypt(response.data.cryptdata, function (err, data) {
                 if (err) {
+                  console.log('Login challenge', response.data.challenge);
                   fail('bad-data-or-bad-password');
                 } else {
-                  store(response.data);
+                  store(response.data.cryptdata);
                   success(data);
                 }
               });
@@ -886,7 +1115,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'sendRegisterPkg',
     value: function sendRegisterPkg(userAddress, pkg, cb) {
-      var _this9 = this;
+      var _this10 = this;
 
       var fail = function fail(err) {
         cb(err || 'bad-user-data');
@@ -900,7 +1129,7 @@ var VexLib = function (_EventEmitter) {
         if (response.status === 200) {
           var key = Buffer.from(response.data.key, 'hex');
           var aesCtr = new _aesJs2.default.ModeOfOperation.ctr(key, new _aesJs2.default.Counter(5));
-          var msg = JSON.stringify(pkg);
+          var msg = (0, _stringify2.default)(pkg);
           var textBytes = _aesJs2.default.utils.utf8.toBytes(msg);
           var encryptedBytes = aesCtr.encrypt(textBytes);
           var intermediaryHex = _aesJs2.default.utils.hex.fromBytes(encryptedBytes);
@@ -908,7 +1137,7 @@ var VexLib = function (_EventEmitter) {
 
           //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
           delete pkg['files'];
-          _this9.axios.post('/vexapi/userdocs/' + userAddress, {
+          _this10.axios.post('/vexapi/userdocs/' + userAddress, {
             data: encryptedHex,
             extraData: pkg
           }).then(function (data) {
@@ -926,20 +1155,70 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'replaceLocalUser',
     value: function replaceLocalUser(email, password, mnemonic, uiLang, cb) {
-      sessionStorage.setItem('currentMnemonic', mnemonic);
+      var _this11 = this;
 
-      this.createUser(email, password, uiLang, cb);
+      var husr = _hash2.default.sha256().update(email).digest('hex');
+      var tries = 2;
+
+      var tryReplace = function tryReplace() {
+        _this11.axios.get('/vexapi/user/' + husr).then(function (response) {
+          var postChallenge = function postChallenge(sigResult) {
+            if (!sigResult) {
+              console.log('cant sign', sigResult);
+              cb('couldnt-sign');
+            } else {
+              sessionStorage.setItem('currentMnemonic', fixAccents(mnemonic));
+              // TODO: Obtener el usuario guardado en el servidor para tener el challenge y firmarlo
+              _this11.createUser(email, password, uiLang, sigResult, function (err, data) {
+                if (err && err === 'bad-signature' && tries > 0) {
+                  tries--;
+                  (0, _setImmediate3.default)(tryReplace);
+                } else {
+                  cb(err, data);
+                }
+              });
+            }
+          };
+
+          /*if (externalToken) {
+            sessionStorage.setItem('device', externalToken.getName())
+            externalToken.signMessage(challenge, postChallenge)
+          } else {*/
+          var keyPair = getKeyPairFromSessionStorage();
+          console.log('Challenge to sig:', response.data.challenge);
+          var signature = _bitcoinjsMessage2.default.sign(response.data.challenge, keyPair.privateKey, keyPair.compressed);
+
+          var sigResult = signature.toString('base64');
+
+          postChallenge(sigResult);
+          //}
+        }).catch(function (err) {
+          if (tries > 0) {
+            tries--;
+            (0, _setImmediate3.default)(tryReplace);
+          } else {
+            cb(err);
+          }
+        });
+      };
+
+      tryReplace();
     }
   }, {
     key: 'createUser',
-    value: function createUser(email, password, uiLang, cb) {
-      var _this10 = this;
+    value: function createUser(email, password, uiLang, signature, cb) {
+      var _this12 = this;
 
       var externalToken = null;
 
-      if ((typeof password === 'undefined' ? 'undefined' : _typeof(password)) === "object") {
+      if ((typeof password === 'undefined' ? 'undefined' : (0, _typeof3.default)(password)) === "object") {
         externalToken = password;
         password = null;
+      }
+
+      if (typeof cb === "undefined") {
+        cb = signature;
+        signature = null;
       }
 
       var itemKey = '_user_data_' + email + '_';
@@ -964,21 +1243,25 @@ var VexLib = function (_EventEmitter) {
           } else {
             sessionStorage.setItem('device', 'userpass');
             sessionStorage.setItem('currentAddress', address);
-            sessionStorage.setItem('currentMnemonic', mnemonic);
+            sessionStorage.setItem('currentMnemonic', fixAccents(mnemonic));
             localStorage.setItem(itemKey, encryptedHex);
             var keyPair = VexLib.keyPairFromMnemonic(mnemonic);
             cb(null, { address: address, mnemonic: mnemonic, keyPair: keyPair });
           }
         };
 
-        _this10.axios.post('/vexapi/user', {
+        _this12.axios.post('/vexapi/user', {
           userid: husr,
           email: email,
           cryptdata: encryptedHex,
-          address: address
+          address: address, signature: signature
         }).then(function (response) {
           if (response.status === 200) {
-            success();
+            if (response.data.error) {
+              fail(response.data.error);
+            } else {
+              success();
+            }
           } else {
             fail();
           }
@@ -993,7 +1276,7 @@ var VexLib = function (_EventEmitter) {
             fail('cant-comm-token');
           } else {
             var pkg = { address: address, token: externalToken.getName() };
-            var msg = JSON.stringify(pkg);
+            var msg = (0, _stringify2.default)(pkg);
             completeRegister(null, address);
           }
         });
@@ -1006,10 +1289,12 @@ var VexLib = function (_EventEmitter) {
         }
 
         var keyPair = VexLib.keyPairFromMnemonic(mnemonic);
-        var address = keyPair.getAddress();
+
+        var _bitcoin = _bitcoinjsLib2.default.payments.p2pkh({ pubkey: keyPair.publicKey, network: _bitcoinjsLib2.default.networks.testnet }),
+            address = _bitcoin.address; //keyPair.getAddress()
 
         var pkg = { address: address, mnemonic: mnemonic, lang: uiLang };
-        var msg = JSON.stringify(pkg);
+        var msg = (0, _stringify2.default)(pkg);
 
         var key = _hash2.default.sha256().update(password).digest();
         var aesCtr = new _aesJs2.default.ModeOfOperation.ctr(key, new _aesJs2.default.Counter(5));
@@ -1023,7 +1308,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'createOrder',
     value: function createOrder(giveAsset, giveAmount, getAsset, getAmount, cb) {
-      var _this11 = this;
+      var _this13 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1035,7 +1320,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this11.emit('need-login');
+          _this13.emit('need-login');
         }
 
         cb(err || 'error-creating-order');
@@ -1055,7 +1340,7 @@ var VexLib = function (_EventEmitter) {
         if (response.status === 200) {
           console.log(response.data);
           signTransaction(response.data.result, function (signed) {
-            _this11.axios.post('/vexapi/sendtx', {
+            _this13.axios.post('/vexapi/sendtx', {
               rawtx: signed
             }).then(function (response) {
               success(response.data.result);
@@ -1071,7 +1356,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'cancelOrder',
     value: function cancelOrder(txid, cb) {
-      var _this12 = this;
+      var _this14 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1084,7 +1369,7 @@ var VexLib = function (_EventEmitter) {
       var fail = function fail(err) {
 
         if (err.response && err.response.status === 401) {
-          _this12.emit('need-login');
+          _this14.emit('need-login');
         }
 
         cb('error-creating-cancel');
@@ -1100,7 +1385,7 @@ var VexLib = function (_EventEmitter) {
       }).then(function (response) {
         if (response.status === 200) {
           signTransaction(response.data.result, function (signed) {
-            return _this12.axios.post('/vexapi/sendtx', {
+            return _this14.axios.post('/vexapi/sendtx', {
               rawtx: signed
             });
           });
@@ -1116,7 +1401,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'reportFiatDeposit',
     value: function reportFiatDeposit(getToken, getAmount, depositId, bankName, files, cb) {
-      var _this13 = this;
+      var _this15 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1129,7 +1414,7 @@ var VexLib = function (_EventEmitter) {
       var fail = function fail(err) {
 
         if (err.response && err.response.status === 401) {
-          _this13.emit('need-login');
+          _this15.emit('need-login');
         }
 
         console.log(err);
@@ -1147,23 +1432,23 @@ var VexLib = function (_EventEmitter) {
       }).then(function (response) {
         if (response.status === 200) {
           signTransaction(response.data.result, function (signed) {
-            return _this13.axios.post('/vexapi/sendtx', {
+            return _this15.axios.post('/vexapi/sendtx', {
               rawtx: signed
             }).then(function (response) {
               var txid = response.data.result;
 
-              _this13.axios.get('/vexapi/sesskey/' + currentAddress).then(function (response) {
+              _this15.axios.get('/vexapi/sesskey/' + currentAddress).then(function (response) {
                 if (response.status === 200) {
                   var key = Buffer.from(response.data.key, 'hex');
                   var aesCtr = new _aesJs2.default.ModeOfOperation.ctr(key, new _aesJs2.default.Counter(5));
-                  var msg = JSON.stringify(files);
+                  var msg = (0, _stringify2.default)(files);
                   var textBytes = _aesJs2.default.utils.utf8.toBytes(msg);
                   var encryptedBytes = aesCtr.encrypt(textBytes);
                   var intermediaryHex = _aesJs2.default.utils.hex.fromBytes(encryptedBytes);
                   var encryptedHex = Buffer.from(intermediaryHex, 'hex').toString('base64');
 
                   //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
-                  _this13.axios.post('/vexapi/deprep/' + currentAddress, {
+                  _this15.axios.post('/vexapi/deprep/' + currentAddress, {
                     data: encryptedHex,
                     txid: txid
                   }).then(function (data) {
@@ -1189,7 +1474,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateWithdrawal',
     value: function generateWithdrawal(token, amount, address, info, cb) {
-      var _this14 = this;
+      var _this16 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1201,7 +1486,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this14.emit('need-login');
+          _this16.emit('need-login');
         }
 
         cb(err || 'error-generating-withdrawal');
@@ -1298,7 +1583,7 @@ var VexLib = function (_EventEmitter) {
             fail(response.error);
           } else {
             signTransaction(response.data.result, function (signed) {
-              _this14.axios.post('/vexapi/sendtx', {
+              _this16.axios.post('/vexapi/sendtx', {
                 rawtx: signed
               }).then(function (response) {
                 success(response.data.result);
@@ -1313,9 +1598,9 @@ var VexLib = function (_EventEmitter) {
       });
     }
   }, {
-    key: 'generateCodeWithdrawal',
-    value: function generateCodeWithdrawal(token, amount, code, cb) {
-      var _this15 = this;
+    key: 'generateTransfer',
+    value: function generateTransfer(token, amount, destination, memo, cb) {
+      var _this17 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1327,7 +1612,100 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this15.emit('need-login');
+          _this17.emit('need-login');
+        }
+
+        cb(err || 'error-generating-transfer');
+      };
+
+      var success = function success(txid) {
+        cb(null, txid);
+      };
+
+      var validate = function validate(addr, net) {
+        try {
+          var decaddr = _bs2.default.decode(addr);
+          console.log('Decoded addr', decaddr);
+
+          return true;
+        } catch (e) {
+          return false;
+        }
+      };
+
+      var divisor = SATOSHIS;
+      if (token in this.fiatTokensDivisor) {
+        divisor = this.fiatTokensDivisor[token];
+      }
+      amount = Math.round(parseFloat(amount) * divisor);
+
+      this.vex('create_send', {
+        source: currentAddress,
+        destination: destination, asset: token, quantity: amount, memo: memo
+      }, function (err, data) {
+        if (err) {
+          console.log('err', err);
+          fail(err);
+        } else if (data.error) {
+          console.log('err', data.error);
+          fail(data.error);
+        } else {
+          signTransaction(data.result, function (signed) {
+            _this17.axios.post('/vexapi/sendtx', {
+              rawtx: signed
+            }).then(function (response) {
+              success(response.data.result);
+            }).catch(function (err) {
+              fail(err);
+            });
+          });
+        }
+      });
+
+      /*this.axios.post('/vexapi/withdraw', {
+        "asset": token,
+        "quantity": amount,
+        "memo": memo,
+        "memo_is_hex": isHex,
+        "source": currentAddress
+      }).then((response) => {
+        if (response.status === 200) {
+          if (response.data.error) {
+            fail(response.data.error)
+          } else if (!response.data) {
+            fail(response.error)
+          } else {
+            signTransaction(response.data.result, (signed) => {
+              this.axios.post('/vexapi/sendtx', {
+                rawtx: signed
+              }).then((response) => {
+                success(response.data.result)
+              })
+            })
+          }
+        } else {
+          fail('error-building-tx')
+        }
+      }).catch((err) => {
+        fail(err)
+      })*/
+    }
+  }, {
+    key: 'generateCodeWithdrawal',
+    value: function generateCodeWithdrawal(token, amount, code, cb) {
+      var _this18 = this;
+
+      var currentAddress = sessionStorage.getItem('currentAddress');
+
+      if (!currentAddress) {
+        cb('login-first');
+        this.emit('need-login');
+        return;
+      }
+
+      var fail = function fail(err) {
+        if (err.response && err.response.status === 401) {
+          _this18.emit('need-login');
         }
 
         cb(err || 'error-generating-withdrawal');
@@ -1361,7 +1739,7 @@ var VexLib = function (_EventEmitter) {
             fail(response.data.error);
           } else {
             signTransaction(response.data.result, function (signed) {
-              return _this15.axios.post('/vexapi/sendtx', {
+              return _this18.axios.post('/vexapi/sendtx', {
                 rawtx: signed
               });
             });
@@ -1378,7 +1756,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generatePaymentBill',
     value: function generatePaymentBill(token, quantity, concept, cb) {
-      var _this16 = this;
+      var _this19 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1390,7 +1768,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this16.emit('need-login');
+          _this19.emit('need-login');
         }
 
         cb('error-creating-report');
@@ -1406,7 +1784,7 @@ var VexLib = function (_EventEmitter) {
       }).then(function (response) {
         if (response.status === 200) {
           signTransaction(response.data.result, function (signed) {
-            return _this16.axios.post('/vexapi/sendtx', {
+            return _this19.axios.post('/vexapi/sendtx', {
               rawtx: signed
             });
           });
@@ -1442,7 +1820,7 @@ var VexLib = function (_EventEmitter) {
         success(response.data.result.map(function (x) {
           try {
             var _x = x.text.split(':'),
-                _x = _slicedToArray(_x, 3),
+                _x = (0, _slicedToArray3.default)(_x, 3),
                 fiat = _x[0],
                 amount = _x[1],
                 depositid = _x[2];
@@ -1496,7 +1874,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getDeposits',
     value: function getDeposits(addr, cb) {
-      var _this17 = this;
+      var _this20 = this;
 
       if (!cb && typeof addr === 'function') {
         cb = addr;
@@ -1514,7 +1892,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this17.emit('need-login');
+          _this20.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -1537,7 +1915,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateTokenDepositAddress',
     value: function generateTokenDepositAddress(token, cb) {
-      var _this18 = this;
+      var _this21 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1550,7 +1928,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this18.emit('need-login');
+          _this21.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -1572,7 +1950,7 @@ var VexLib = function (_EventEmitter) {
           fail(err);
         } else {
           signTransaction(data.result, function (signedTransaction) {
-            _this18.axios.post('/vexapi/sendtx', {
+            _this21.axios.post('/vexapi/sendtx', {
               rawtx: signedTransaction
             }).then(function (response) {
               success(response.data.result);
@@ -1586,7 +1964,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getTokenDepositAddress',
     value: function getTokenDepositAddress(token, cb) {
-      var _this19 = this;
+      var _this22 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1599,7 +1977,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this19.emit('need-login');
+          _this22.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -1662,7 +2040,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'localLogin',
     value: function localLogin(externalToken, cb) {
-      var _this20 = this;
+      var _this23 = this;
 
       if (typeof cb === 'undefined') {
         cb = externalToken;
@@ -1671,7 +2049,7 @@ var VexLib = function (_EventEmitter) {
 
       var sign = function sign(currentAddress) {
         sessionStorage.setItem('currentAddress', currentAddress);
-        _this20.getChallenge(function (err, challenge) {
+        _this23.getChallenge(function (err, challenge) {
           if (err) {
             console.log('Error getting challenge');
             cb(err);
@@ -1682,15 +2060,15 @@ var VexLib = function (_EventEmitter) {
                 cb('couldnt-sign');
               } else {
                 console.log('signature ready, posting');
-                _this20.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
+                _this23.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
                   console.log('Got response from sig', response);
                   if (response.data.success) {
-                    _this20.axios = defaultAxios({ headers: {
+                    _this23.axios = defaultAxios({ headers: {
                         'addr': currentAddress,
                         'token': response.data.accessToken
                       } });
 
-                    _this20.userEnabled(function (err, isEnabled) {
+                    _this23.userEnabled(function (err, isEnabled) {
                       console.log('Got from user enabled', isEnabled, err);
                       if (err) {
                         cb(err);
@@ -1737,7 +2115,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'remoteLogin',
     value: function remoteLogin(email, password, externalToken, cb) {
-      var _this21 = this;
+      var _this24 = this;
 
       if (typeof cb === "undefined") {
         cb = externalToken;
@@ -1751,14 +2129,14 @@ var VexLib = function (_EventEmitter) {
           if (err) {
             if (err === 'bad-data-or-bad-password') {
               console.log('Attempting local only login');
-              _this21.localLogin(null, cb);
+              _this24.localLogin(null, cb);
             } else {
               console.log('Unrecoverable error while trying to login', email);
               cb(err);
             }
           } else {
             console.log('Attempting local only login');
-            _this21.localLogin(null, cb);
+            _this24.localLogin(null, cb);
           }
         });
       }
@@ -1766,7 +2144,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'remoteLogout',
     value: function remoteLogout(cb) {
-      var _this22 = this;
+      var _this25 = this;
 
       var currentAddress = sessionStorage.getItem('currentAddress');
 
@@ -1777,12 +2155,12 @@ var VexLib = function (_EventEmitter) {
       }
 
       this.axios.get('/vexapi/logout').then(function () {
-        _this22.axios = defaultAxios();
+        _this25.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(null, true);
       }).catch(function (err) {
-        _this22.axios = defaultAxios();
+        _this25.axios = defaultAxios();
         sessionStorage.removeItem('currentAddress');
         sessionStorage.removeItem('currentMnemonic');
         cb(err);
@@ -1878,7 +2256,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'createSendFromWif',
     value: function createSendFromWif(wif, quantity, destination, asset, cb) {
-      var _this23 = this;
+      var _this26 = this;
 
       var keyPair = _bitcoinjsLib2.default.ECPair.fromWIF(wif, _bitcoinjsLib2.default.networks.testnet);
 
@@ -1886,7 +2264,7 @@ var VexLib = function (_EventEmitter) {
         var tx = _bitcoinjsLib2.default.Transaction.fromHex(rawHex);
 
         buildAndSign(keyPair, tx, function (signed) {
-          _this23.axios.post('/vexapi/ext_sendtx', {
+          _this26.axios.post('/vexapi/ext_sendtx', {
             rawtx: signed
           }).then(function (response) {
             cb(null, response.data.result);
@@ -1916,13 +2294,12 @@ var VexLib = function (_EventEmitter) {
   }], [{
     key: 'keyPairFromMnemonic',
     value: function keyPairFromMnemonic(mnemonic) {
-      var seedHex = _bip2.default.mnemonicToSeedHex(mnemonic);
+      var seedHex = _bip2.default.mnemonicToSeedHex(fixAccents(mnemonic));
 
-      var d = _bigi2.default.fromBuffer(_bitcoinjsLib2.default.crypto.sha256(Buffer.from(seedHex, 'hex')));
-      return new _bitcoinjsLib2.default.ECPair(d, null, { network: _bitcoinjsLib2.default.networks.testnet });
+      var d = _bitcoinjsLib2.default.crypto.sha256(Buffer.from(seedHex, 'hex'));
+      return _bitcoinjsLib2.default.ECPair.fromPrivateKey(d, { network: _bitcoinjsLib2.default.networks.testnet });
     }
   }]);
-
   return VexLib;
 }(_events2.default);
 
@@ -1932,12 +2309,18 @@ exports.default = VexLib;
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.SATOSHIS = undefined;
 
-var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
+var _slicedToArray2 = require('babel-runtime/helpers/slicedToArray');
+
+var _slicedToArray3 = _interopRequireDefault(_slicedToArray2);
 
 exports.limit8Decimals = limit8Decimals;
 exports.sanitizeDecimals = sanitizeDecimals;
 exports.softLimit8Decimals = softLimit8Decimals;
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
 function limit8Decimals(v) {
@@ -1970,7 +2353,7 @@ function softLimit8Decimals(v) {
       return v;
     } else {
       var _v = v.split('.'),
-          _v = _slicedToArray(_v, 2),
+          _v = (0, _slicedToArray3.default)(_v, 2),
           i = _v[0],
           d = _v[1];
 
