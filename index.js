@@ -232,6 +232,7 @@ export default class VexLib extends EventEmitter {
     }
 
     this._is_connected_ = false
+    this._is_authed_ = false
     this._call_list_ = []
 
     this.sKeyPairFromMnemonic = VexLib.keyPairFromMnemonic
@@ -309,21 +310,32 @@ export default class VexLib extends EventEmitter {
     this.socket.on('banks', vexApiHandler)
     this.socket.on('indexer', vexApiHandler)
     this.socket.on('proxy', vexApiHandler)
+    this.socket.on('need2fa', (data) => this.emit('need2fa', data))
+    this.socket.on('needauth', (data) => this.emit('needauth', data))
+    this.socket.on('authok', () => { this.emit('authok'); this._authed_() })
+  }
+
+  consumeCallList = () => {
+    console.log('Consuming call list')
+    let call = this._call_list_.shift()
+    if (call) {
+      call()
+      setImmediate(this.consumeCallList)
+    }
   }
 
   _socket_connect_ = () => {
     console.log('Socket connected')
     this._is_connected_ = true
 
-    let consumeCallList = () => {
-      let call = this._call_list_.shift()
-      if (call) {
-        call()
-        setImmediate(consumeCallList)
-      }
+    if (this._is_connected_) {
+      this.consumeCallList()
     }
+  }
 
-    consumeCallList()
+  _authed_ = () => {
+    this._is_authed_ = true
+    this.consumeCallList()
   }
 
   _socket_close_ = () => {
@@ -345,6 +357,7 @@ export default class VexLib extends EventEmitter {
     this.emit('updates', updates)
   }
 
+  hasEmittedNeedauth = false
   _api_(entry, method, params, cb) {
     this.cbList[this.lastVexSeq] = cb
 
@@ -361,8 +374,14 @@ export default class VexLib extends EventEmitter {
     if (this._is_connected_) {
       doCall()
     } else {
-      console.log(`Postergating ${entry} call because socket is not connected`)
+      console.trace(`Postergating ${entry} call because socket is not connected`)
       this._call_list_.push(doCall)
+      if (!this.hasEmittedNeedauth) {
+        this.hasEmittedNeedauth = true
+        setTimeout(() => {
+          this.emit('needauth')
+        }, 500)
+      }
     }
   }
 
@@ -697,7 +716,8 @@ export default class VexLib extends EventEmitter {
     this.vex('get_orders', {
       filters,
       order_by: 'block_index',
-      order_dir: 'DESC'
+      order_dir: 'DESC',
+      limit: 100
     }, (err, data) => {
       if (err) {
         cb(err)
@@ -1014,6 +1034,13 @@ export default class VexLib extends EventEmitter {
     tryReplace()
   }
 
+  signMessage(msg, cb) {
+    let keyPair = getKeyPairFromSessionStorage()
+    let signature = bitcoinMessage.sign(msg, keyPair.privateKey, keyPair.compressed)
+
+    cb(null, signature.toString('base64'))
+  }
+
   createUser(email, password, uiLang, signature, cb) {
     let externalToken = null
 
@@ -1139,7 +1166,6 @@ export default class VexLib extends EventEmitter {
       "source": currentAddress
     }).then((response) => {
       if (response.status === 200) {
-        console.log(response.data)
         signTransaction(response.data.result, (signed) => {
           this.axios.post('/vexapi/sendtx', {
             rawtx: signed
@@ -1813,11 +1839,20 @@ export default class VexLib extends EventEmitter {
     })
   }
 
-  localLogin(externalToken, cb) {
+  localLogin(ops, cb) {
+    let externalToken = null
+    let twofacode = null
 
     if (typeof(cb) === 'undefined') {
-      cb = externalToken
-      externalToken = null
+      cb = ops
+      ops = null
+    }
+
+    if (ops &&  typeof(ops) === 'string') {
+      externalToken = ops
+    } else if (ops && typeof(ops) === 'object') {
+      externalToken = ops['externalToken'] || null
+      twofacode = ops['twofacode'] || null
     }
 
     let sign = (currentAddress) => {
@@ -1841,12 +1876,16 @@ export default class VexLib extends EventEmitter {
                     'token': response.data.accessToken
                   }})
 
+                  if (!this._is_authed_) {
+                    this.emit('needauth')
+                  }
+
                   this.userEnabled((err, isEnabled) => {
-                    console.log('Got from user enabled', isEnabled, err)
                     if (err) {
                       cb(err)
                     } else {
                       if (isEnabled) {
+                        this.socket.emit('auth', { address: currentAddress, token: response.data.accessToken, twofa: twofacode })
                         cb(null, response.data)
                       } else {
                         cb('user-not-enabled')
@@ -1887,26 +1926,35 @@ export default class VexLib extends EventEmitter {
   }
 
   remoteLogin(email, password, externalToken, cb) {
+    let ob = {}
     if (typeof(cb) === "undefined") {
       cb = externalToken
       externalToken = null
+    } else {
+      ob.externalToken = externalToken
+    }
+
+    if (email.indexOf("\n") > 0) {
+      let spl = email.split("\n")
+      email = spl[0]
+      ob.twofacode = spl[1]
     }
 
     if (externalToken) {
-      this.localLogin(externalToken, cb)
+      this.localLogin({externalToken}, cb)
     } else {
       this.getUser(email, password, (err, userData) => {
         if (err) {
           if (err === 'bad-data-or-bad-password') {
             console.log('Attempting local only login')
-            this.localLogin(null, cb)
+            this.localLogin(ob, cb)
           } else {
             console.log('Unrecoverable error while trying to login', email)
             cb(err)
           }
         } else {
           console.log('Attempting local only login')
-          this.localLogin(null, cb)
+          this.localLogin(ob, cb)
         }
       })
     }

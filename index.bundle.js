@@ -133,7 +133,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
  * Original Author: johnvillar@contimita.com
  *
  **/
-var build = "236";
+var build = "263";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -331,19 +331,27 @@ var VexLib = function (_EventEmitter) {
 
     var _this = (0, _possibleConstructorReturn3.default)(this, (VexLib.__proto__ || (0, _getPrototypeOf2.default)(VexLib)).call(this));
 
+    _this.consumeCallList = function () {
+      console.log('Consuming call list');
+      var call = _this._call_list_.shift();
+      if (call) {
+        call();
+        (0, _setImmediate3.default)(_this.consumeCallList);
+      }
+    };
+
     _this._socket_connect_ = function () {
       console.log('Socket connected');
       _this._is_connected_ = true;
 
-      var consumeCallList = function consumeCallList() {
-        var call = _this._call_list_.shift();
-        if (call) {
-          call();
-          (0, _setImmediate3.default)(consumeCallList);
-        }
-      };
+      if (_this._is_connected_) {
+        _this.consumeCallList();
+      }
+    };
 
-      consumeCallList();
+    _this._authed_ = function () {
+      _this._is_authed_ = true;
+      _this.consumeCallList();
     };
 
     _this._socket_close_ = function () {
@@ -365,6 +373,9 @@ var VexLib = function (_EventEmitter) {
       _this.emit('updates', updates);
     };
 
+    _this.hasEmittedNeedauth = false;
+
+
     _this.lang = options.lang || 'EN';
     _this.exchangeAddress = options.exchangeAddress || '';
 
@@ -380,6 +391,7 @@ var VexLib = function (_EventEmitter) {
     };
 
     _this._is_connected_ = false;
+    _this._is_authed_ = false;
     _this._call_list_ = [];
 
     _this.sKeyPairFromMnemonic = VexLib.keyPairFromMnemonic;
@@ -462,6 +474,15 @@ var VexLib = function (_EventEmitter) {
       this.socket.on('banks', vexApiHandler);
       this.socket.on('indexer', vexApiHandler);
       this.socket.on('proxy', vexApiHandler);
+      this.socket.on('need2fa', function (data) {
+        return _this2.emit('need2fa', data);
+      });
+      this.socket.on('needauth', function (data) {
+        return _this2.emit('needauth', data);
+      });
+      this.socket.on('authok', function () {
+        _this2.emit('authok');_this2._authed_();
+      });
     }
   }, {
     key: '_api_',
@@ -485,8 +506,14 @@ var VexLib = function (_EventEmitter) {
       if (this._is_connected_) {
         doCall();
       } else {
-        console.log('Postergating ' + entry + ' call because socket is not connected');
+        console.trace('Postergating ' + entry + ' call because socket is not connected');
         this._call_list_.push(doCall);
+        if (!this.hasEmittedNeedauth) {
+          this.hasEmittedNeedauth = true;
+          setTimeout(function () {
+            _this3.emit('needauth');
+          }, 500);
+        }
       }
     }
   }, {
@@ -880,7 +907,8 @@ var VexLib = function (_EventEmitter) {
       this.vex('get_orders', {
         filters: filters,
         order_by: 'block_index',
-        order_dir: 'DESC'
+        order_dir: 'DESC',
+        limit: 100
       }, function (err, data) {
         if (err) {
           cb(err);
@@ -1205,6 +1233,14 @@ var VexLib = function (_EventEmitter) {
       tryReplace();
     }
   }, {
+    key: 'signMessage',
+    value: function signMessage(msg, cb) {
+      var keyPair = getKeyPairFromSessionStorage();
+      var signature = _bitcoinjsMessage2.default.sign(msg, keyPair.privateKey, keyPair.compressed);
+
+      cb(null, signature.toString('base64'));
+    }
+  }, {
     key: 'createUser',
     value: function createUser(email, password, uiLang, signature, cb) {
       var _this12 = this;
@@ -1338,7 +1374,6 @@ var VexLib = function (_EventEmitter) {
         "source": currentAddress
       }).then(function (response) {
         if (response.status === 200) {
-          console.log(response.data);
           signTransaction(response.data.result, function (signed) {
             _this13.axios.post('/vexapi/sendtx', {
               rawtx: signed
@@ -2039,12 +2074,22 @@ var VexLib = function (_EventEmitter) {
     }
   }, {
     key: 'localLogin',
-    value: function localLogin(externalToken, cb) {
+    value: function localLogin(ops, cb) {
       var _this23 = this;
 
+      var externalToken = null;
+      var twofacode = null;
+
       if (typeof cb === 'undefined') {
-        cb = externalToken;
-        externalToken = null;
+        cb = ops;
+        ops = null;
+      }
+
+      if (ops && typeof ops === 'string') {
+        externalToken = ops;
+      } else if (ops && (typeof ops === 'undefined' ? 'undefined' : (0, _typeof3.default)(ops)) === 'object') {
+        externalToken = ops['externalToken'] || null;
+        twofacode = ops['twofacode'] || null;
       }
 
       var sign = function sign(currentAddress) {
@@ -2068,12 +2113,16 @@ var VexLib = function (_EventEmitter) {
                         'token': response.data.accessToken
                       } });
 
+                    if (!_this23._is_authed_) {
+                      _this23.emit('needauth');
+                    }
+
                     _this23.userEnabled(function (err, isEnabled) {
-                      console.log('Got from user enabled', isEnabled, err);
                       if (err) {
                         cb(err);
                       } else {
                         if (isEnabled) {
+                          _this23.socket.emit('auth', { address: currentAddress, token: response.data.accessToken, twofa: twofacode });
                           cb(null, response.data);
                         } else {
                           cb('user-not-enabled');
@@ -2117,26 +2166,35 @@ var VexLib = function (_EventEmitter) {
     value: function remoteLogin(email, password, externalToken, cb) {
       var _this24 = this;
 
+      var ob = {};
       if (typeof cb === "undefined") {
         cb = externalToken;
         externalToken = null;
+      } else {
+        ob.externalToken = externalToken;
+      }
+
+      if (email.indexOf("\n") > 0) {
+        var spl = email.split("\n");
+        email = spl[0];
+        ob.twofacode = spl[1];
       }
 
       if (externalToken) {
-        this.localLogin(externalToken, cb);
+        this.localLogin({ externalToken: externalToken }, cb);
       } else {
         this.getUser(email, password, function (err, userData) {
           if (err) {
             if (err === 'bad-data-or-bad-password') {
               console.log('Attempting local only login');
-              _this24.localLogin(null, cb);
+              _this24.localLogin(ob, cb);
             } else {
               console.log('Unrecoverable error while trying to login', email);
               cb(err);
             }
           } else {
             console.log('Attempting local only login');
-            _this24.localLogin(null, cb);
+            _this24.localLogin(ob, cb);
           }
         });
       }
