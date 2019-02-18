@@ -292,6 +292,8 @@ export default class VexLib extends EventEmitter {
         if (cb) {
           if (data.error) {
             cb(data.error)
+          } else if (data.err) {
+            cb(data.err)
           } else {
             cb(null, data.data)
           }
@@ -1209,15 +1211,20 @@ export default class VexLib extends EventEmitter {
     }).then((response) => {
       if (response.status === 200) {
         signTransaction(response.data.result, (signed) => {
-          return this.axios.post('/vexapi/sendtx', {
+          this.axios.post('/vexapi/sendtx', {
             rawtx: signed
+          }).then((resp) => {
+            if (resp.data.error) {
+              fail(resp.data.error)
+            } else {
+              console.log('Success cancel', resp.data.result)
+              success(resp.data.result)
+            }
           })
         })
       } else {
         fail()
       }
-    }).then((response) => {
-      success(response.data.result)
     }).catch((err) => {
       fail(err)
     })
@@ -1418,7 +1425,11 @@ export default class VexLib extends EventEmitter {
     })
   }
 
-  generateTransfer(token, amount, destination, memo, cb) {
+  generateTransfer(token, amount, destination, memo, twofa, cb) {
+    if (!cb && twofa && typeof(twofa) === 'function') {
+      cb = twofa
+      twofa = null
+    }
     let currentAddress = sessionStorage.getItem('currentAddress')
 
     if (!currentAddress) {
@@ -1456,10 +1467,16 @@ export default class VexLib extends EventEmitter {
     }
     amount = Math.round(parseFloat(amount) * divisor)
 
-    this.vex('create_send', {
+    let csOb = {
       source: currentAddress,
       destination, asset: token, quantity: amount, memo
-    }, (err, data) => {
+    }
+
+    if (twofa) {
+      csOb.twofa = twofa
+    }
+
+    this.vex('create_send', csOb, (err, data) => {
       if (err) {
         console.log('err', err)
         fail(err)
@@ -2101,5 +2118,12 @@ export default class VexLib extends EventEmitter {
         finish(data.result)
       }
     })
+  }
+
+  addressFromMnemonic(mnemonic) {
+    let keyPair = VexLib.keyPairFromMnemonic(mnemonic)
+    let {address} = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey, network: bitcoin.networks.testnet })
+
+    return address
   }
 }

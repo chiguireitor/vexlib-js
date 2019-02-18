@@ -133,7 +133,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
  * Original Author: johnvillar@contimita.com
  *
  **/
-var build = "263";
+var build = "274";
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -456,6 +456,8 @@ var VexLib = function (_EventEmitter) {
           if (cb) {
             if (data.error) {
               cb(data.error);
+            } else if (data.err) {
+              cb(data.err);
             } else {
               cb(null, data.data);
             }
@@ -1420,15 +1422,20 @@ var VexLib = function (_EventEmitter) {
       }).then(function (response) {
         if (response.status === 200) {
           signTransaction(response.data.result, function (signed) {
-            return _this14.axios.post('/vexapi/sendtx', {
+            _this14.axios.post('/vexapi/sendtx', {
               rawtx: signed
+            }).then(function (resp) {
+              if (resp.data.error) {
+                fail(resp.data.error);
+              } else {
+                console.log('Success cancel', resp.data.result);
+                success(resp.data.result);
+              }
             });
           });
         } else {
           fail();
         }
-      }).then(function (response) {
-        success(response.data.result);
       }).catch(function (err) {
         fail(err);
       });
@@ -1634,9 +1641,13 @@ var VexLib = function (_EventEmitter) {
     }
   }, {
     key: 'generateTransfer',
-    value: function generateTransfer(token, amount, destination, memo, cb) {
+    value: function generateTransfer(token, amount, destination, memo, twofa, cb) {
       var _this17 = this;
 
+      if (!cb && twofa && typeof twofa === 'function') {
+        cb = twofa;
+        twofa = null;
+      }
       var currentAddress = sessionStorage.getItem('currentAddress');
 
       if (!currentAddress) {
@@ -1674,10 +1685,16 @@ var VexLib = function (_EventEmitter) {
       }
       amount = Math.round(parseFloat(amount) * divisor);
 
-      this.vex('create_send', {
+      var csOb = {
         source: currentAddress,
         destination: destination, asset: token, quantity: amount, memo: memo
-      }, function (err, data) {
+      };
+
+      if (twofa) {
+        csOb.twofa = twofa;
+      }
+
+      this.vex('create_send', csOb, function (err, data) {
         if (err) {
           console.log('err', err);
           fail(err);
@@ -2348,6 +2365,16 @@ var VexLib = function (_EventEmitter) {
           finish(data.result);
         }
       });
+    }
+  }, {
+    key: 'addressFromMnemonic',
+    value: function addressFromMnemonic(mnemonic) {
+      var keyPair = VexLib.keyPairFromMnemonic(mnemonic);
+
+      var _bitcoin = _bitcoinjsLib2.default.payments.p2pkh({ pubkey: keyPair.publicKey, network: _bitcoinjsLib2.default.networks.testnet }),
+          address = _bitcoin.address;
+
+      return address;
     }
   }], [{
     key: 'keyPairFromMnemonic',
