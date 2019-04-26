@@ -11,9 +11,9 @@ En el código/On your code:
 import VexLib from 'vexlib-js'
 
 const vl = VexLib.singleton({
-  baseUrl: 'localhost', // Default: 'vex.xcp.host' if serving from the web
+  baseUrl: 'localhost', // Default: 'ex.contimita.com' if serving from the web
   lang: 'ES' // Default: 'EN'
   })
 ```
 
-MIT Licensed 2018 by Sistemas Timitacon C.A.
+MIT Licensed 2018-2019 by Sistemas Timitacon C.A.

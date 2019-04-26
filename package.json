@@ -7,15 +7,46 @@
   "author": "John Villar <johnvillar@contimita.com>",
   "license": "MIT",
   "scripts": {
-    "build": "babel -o index.bundle.js_pre index.js util.js && BUILD=`node buildHelper.js` envsubst < index.bundle.js_pre > index.bundle.js",
-    "dev": "nodemon -w src --exec \"babel-node test.js --presets es2015,stage-0\""
+    "r": "node --max-old-space-size=4096 ./node_modules/.bin/rollup -c && cp index.rollup.js index.bundle.js",
+    "build": "babel -o index.bundle.js_pre index.js && BUILD=`node buildHelper.js` envsubst < index.bundle.js_pre > index.bundle.js",
+    "dev": "nodemon --watch index.js --exec \"npm run build\"",
+    "dev-old": "nodemon -w src --exec \"babel-node test.js --presets es2015,stage-0\""
+  },
+  "-babel7-conflict-devDependencies": {
+    "@babel/cli": "^7.4.3",
+    "@babel/core": "^7.4.3",
+    "@babel/plugin-proposal-class-properties": "^7.4.0",
+    "@babel/plugin-proposal-do-expressions": "^7.2.0",
+    "@babel/plugin-proposal-export-default-from": "^7.2.0",
+    "@babel/plugin-proposal-function-bind": "^7.2.0",
+    "@babel/plugin-proposal-logical-assignment-operators": "^7.2.0",
+    "@babel/plugin-proposal-nullish-coalescing-operator": "^7.4.3",
+    "@babel/plugin-proposal-object-rest-spread": "^7.4.3",
+    "@babel/plugin-proposal-optional-chaining": "^7.2.0",
+    "@babel/plugin-proposal-pipeline-operator": "^7.3.2",
+    "@babel/plugin-transform-runtime": "^7.4.3",
+    "@babel/plugin-transform-template-literals": "^7.2.0",
+    "@babel/preset-env": "^7.4.3",
+    "@babel/preset-stage-0": "^7.0.0",
+    "@babel/runtime": "^7.4.3",
+    "@babel/runtime-corejs2": "^7.4.3",
+    "nodemon": "^1.18.5",
+    "rollup": "^1.10.1",
+    "rollup-plugin-babel": "^4.3.2",
+    "rollup-plugin-babel-minify": "^8.0.0",
+    "rollup-plugin-commonjs": "^9.3.4",
+    "rollup-plugin-json": "^4.0.0",
+    "rollup-plugin-node-builtins": "^2.1.2",
+    "rollup-plugin-node-resolve": "^4.2.3"
   },
   "devDependencies": {
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.3",
     "babel-plugin-transform-class-properties": "^6.24.1",
     "babel-plugin-transform-object-rest-spread": "^6.26.0",
+    "babel-plugin-transform-regenerator": "^6.26.0",
     "babel-plugin-transform-runtime": "^6.23.0",
+    "babel-polyfill": "^6.26.0",
     "babel-preset-env": "^1.7.0",
     "babel-preset-es2015": "^6.24.1",
     "babel-preset-stage-0": "^6.24.1",
@@ -32,9 +63,13 @@
     "bitcoinjs-lib": "^4.0.2",
     "bitcoinjs-message": "^2.0.0",
     "bs58": "^4.0.1",
+    "bufferutil": "^4.0.1",
     "check-ip": "^1.1.1",
     "hash.js": "^1.1.4",
+    "regenerator-runtime": "^0.13.2",
     "socket.io-client": "^2.1.1",
-    "wrappy": "^1.0.2"
+    "utf-8-validate": "^5.0.2",
+    "wrappy": "^1.0.2",
+    "xcpjsv2": "0.0.6"
   }
 }

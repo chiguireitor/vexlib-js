@@ -1,4 +1,9 @@
 {
-  "presets": ["env"],
-  "plugins": ["transform-class-properties", "transform-object-rest-spread", "transform-runtime"]
+  "presets": ["es2015", "env"],
+  "plugins": ["transform-class-properties", "transform-object-rest-spread",
+    ["transform-regenerator", {
+      "asyncGenerators": false,
+      "generators": false,
+      "async": false
+      }]]
 }

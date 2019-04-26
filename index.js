@@ -22,6 +22,7 @@
  * Original Author: johnvillar@contimita.com
  *
  **/
+import "regenerator-runtime/runtime"
 import axios from 'axios'
 import bip39 from 'bip39'
 import hash from 'hash.js'
@@ -33,7 +34,8 @@ import bs58 from 'bs58'
 import EventEmitter from 'events'
 import io from 'socket.io-client'
 import checkIp from 'check-ip'
-import {BigNumber} from 'bignumber.js'
+import BigNumber from 'bignumber.js'
+import xcpjsv2 from 'xcpjsv2'
 
 const build="${BUILD}"
 
@@ -147,6 +149,10 @@ var devices = {}
 function buildAndSign(keyPair, tx, cb) {
   let builder = new bitcoin.TransactionBuilder(bitcoin.networks.testnet)
 
+  if (tx.__tx) {
+    tx = tx.__tx
+  }
+
   tx.ins.forEach(vin => {
     builder.addInput(vin.hash.reverse().toString('hex'), vin.index)
   })
@@ -231,9 +237,12 @@ export default class VexLib extends EventEmitter {
       VEST: 100
     }
 
+    this.experiments = localStorage.getItem('experiments') === '1'
+
     this._is_connected_ = false
     this._is_authed_ = false
     this._call_list_ = []
+    this._noauth_call_list_ = []
 
     this.sKeyPairFromMnemonic = VexLib.keyPairFromMnemonic
 
@@ -243,6 +252,9 @@ export default class VexLib extends EventEmitter {
           console.log('Config loaded', response.data)
 
           this.exchangeAddress = response.data.exchangeAddress
+          this.proxyAgent = response.data.proxyAgent || ''
+          this.maintenance = response.data.maintenance || ''
+          this.unspendableAddress = 'mvCounterpartyXXXXXXXXXXXXXXW24Hef'
 
           this._start_socket_()
         } else {
@@ -252,6 +264,9 @@ export default class VexLib extends EventEmitter {
                 console.log('Config loaded', response.data)
 
                 this.exchangeAddress = response.data.exchangeAddress
+                this.proxyAgent = response.data.proxyAgent || ''
+                this.maintenance = response.data.maintenance || ''
+                this.unspendableAddress = 'mvCounterpartyXXXXXXXXXXXXXXW24Hef'
 
                 this._start_socket_()
               } else {
@@ -265,6 +280,17 @@ export default class VexLib extends EventEmitter {
 
         this._start_socket_()
       })
+
+    xcpjsv2.setNetwork('testnet')
+    xcpjsv2.setBroadcastService({broadcast: async (txHex) => {
+      let result = await this.axios.post('/vexapi/sendtx', {
+        rawtx: txHex
+      })
+
+      return result
+    }})
+
+    xcpjsv2.setUtxoService(xcpjsv2.services.indexdUtxos(baseUrl + '/index/'))
   }
 
   tokenDivisor(tkn) {
@@ -312,13 +338,13 @@ export default class VexLib extends EventEmitter {
     this.socket.on('banks', vexApiHandler)
     this.socket.on('indexer', vexApiHandler)
     this.socket.on('proxy', vexApiHandler)
+    this.socket.on('orders', vexApiHandler)
     this.socket.on('need2fa', (data) => this.emit('need2fa', data))
     this.socket.on('needauth', (data) => this.emit('needauth', data))
     this.socket.on('authok', () => { this.emit('authok'); this._authed_() })
   }
 
   consumeCallList = () => {
-    console.log('Consuming call list')
     let call = this._call_list_.shift()
     if (call) {
       call()
@@ -326,13 +352,18 @@ export default class VexLib extends EventEmitter {
     }
   }
 
+  consumeNoauthCallList = () => {
+    let call = this._noauth_call_list_.shift()
+    if (call) {
+      call()
+      setImmediate(this.consumeNoauthCallList)
+    }
+  }
+
   _socket_connect_ = () => {
     console.log('Socket connected')
     this._is_connected_ = true
-
-    if (this._is_connected_) {
-      this.consumeCallList()
-    }
+    this.consumeNoauthCallList()
   }
 
   _authed_ = () => {
@@ -360,7 +391,7 @@ export default class VexLib extends EventEmitter {
   }
 
   hasEmittedNeedauth = false
-  _api_(entry, method, params, cb) {
+  _api_(entry, method, params, cb, noAuthNeeded) {
     this.cbList[this.lastVexSeq] = cb
 
     let doCall = ((seq) => () => {
@@ -373,11 +404,18 @@ export default class VexLib extends EventEmitter {
 
     this.lastVexSeq++
 
-    if (this._is_connected_) {
+    if (this._is_authed_ || this._is_connected_ && noAuthNeeded) {
+    //if (this._is_connected_) {
       doCall()
     } else {
-      console.trace(`Postergating ${entry} call because socket is not connected`)
-      this._call_list_.push(doCall)
+      if (noAuthNeeded) {
+        this._noauth_call_list_.push(doCall)
+        console.log(`Postergating ${entry}.${method} call until connection`)
+      } else {
+        this._call_list_.push(doCall)
+        console.log(`Postergating ${entry}.${method} call until authorization`)
+      }
+
       if (!this.hasEmittedNeedauth) {
         this.hasEmittedNeedauth = true
         setTimeout(() => {
@@ -387,16 +425,20 @@ export default class VexLib extends EventEmitter {
     }
   }
 
-  vex(method, params, cb) {
-    this._api_('vex', method, params, cb)
+  _promisify_ = func => (method, params) => new Promise((resolve, reject) => { this[func](method, params, (err, data) => { if (err) { resolve(err) } else { resolve(data) } }) })
+
+  vex(method, params, cb, noAuthNeeded) {
+    this._api_('vex', method, params, cb, noAuthNeeded)
   }
 
   vexblock(method, params, cb) {
     this._api_('vexblock', method, params, cb)
   }
 
-  db(method, params, cb) {
-    this._api_('db', method, params, cb)
+  vexblockAsync = this._promisify_('vexblock')
+
+  db(method, params, cb, noAuthNeeded) {
+    this._api_('db', method, params, cb, noAuthNeeded)
   }
 
   ldb(method, params, cb) {
@@ -417,6 +459,10 @@ export default class VexLib extends EventEmitter {
 
   proxy(method, params, cb) {
     this._api_('proxy', method, params, cb)
+  }
+
+  orders(method, params, cb) {
+    this._api_('orders', method, params, cb)
   }
 
   signAndBroadcastTransaction(rawtx, cb) {
@@ -500,10 +546,9 @@ export default class VexLib extends EventEmitter {
       if (err) {
         cb(err)
       } else {
-        console.log(data)
         cb(null, data.result && data.result.length > 0)
       }
-    })
+    }, true)
   }
 
   proxy_getOrderBook(give, get, isBid, cb) {
@@ -534,6 +579,17 @@ export default class VexLib extends EventEmitter {
   }
 
   getOrderBook(give, get, isBid, cb) {
+    this.orders('orderBook', { give, get }, (err, data) => {
+      if (err) {
+        console.log('orderBookErr', err)
+        cb(err)
+      } else {
+        cb(null, data)
+      }
+    })
+  }
+
+  getOrderBook_old(give, get, isBid, cb) {
     let proxyGive = give.slice(0, -1)
     let proxyGet = get.slice(0, -1)
     if (!isBid) {
@@ -545,6 +601,7 @@ export default class VexLib extends EventEmitter {
       this.proxy_getOrderBook(proxyGive, proxyGet, isBid, cb)
       return
     }
+
     this.vex('get_orders', {
       filters: [
         {
@@ -581,6 +638,17 @@ export default class VexLib extends EventEmitter {
         let giveDivisor = giveIsFiat?this.fiatTokensDivisor[give]:SATOSHIS
         let getDivisor = getIsFiat?this.fiatTokensDivisor[get]:SATOSHIS
 
+        const properComparePrice = (a, b) => {
+          if (giveIsFiat || getIsFiat) {
+            let ba = new BigNumber(a)
+            let bb = new BigNumber(b)
+
+            return ba.toFixed(2) === bb.toFixed(2)
+          } else {
+            return a === b
+          }
+        }
+
         //console.log(isBid, giveIsFiat, getIsFiat, giveDivisor, getDivisor, give, get)
 
         let res = data.result.map(x => {
@@ -601,13 +669,20 @@ export default class VexLib extends EventEmitter {
             itm.sumGive = sumGive
             itm.sumGet = sumGet
 
-            let lastItem = arr[arr.length - 1]
+            if (arr.length > 0) {
+              let lastItem = arr[arr.length - 1]
 
-            if (lastItem && (lastItem.price == itm.price)) {
-              lastItem.sumGive = sumGive
-              lastItem.sumGet = sumGet
-              lastItem.give += itm.give
-              lastItem.get += itm.get
+              if (lastItem && properComparePrice(lastItem.price, itm.price)) {
+                lastItem.sumGive = sumGive
+                lastItem.sumGet = sumGet
+
+                lastItem.give += itm.give
+                lastItem.get += itm.get
+
+                arr[arr.length - 1] = lastItem
+              } else {
+                arr.push(itm)
+              }
             } else {
               arr.push(itm)
             }
@@ -633,22 +708,28 @@ export default class VexLib extends EventEmitter {
       .catch(err => {
         cb(data)
       })
-
-      /*this.axios.post(`/vexapi/blocktimes`, {
-        data: data.map(x => x.block)
-      }).then((btimes) => {
-        let mapping = {}
-        btimes.data.forEach(x => {
-          mapping[x.block_index] = x.time
-        })
-        cb(data.map( x => ({ time: mapping[x.block] * 1000, ...x}) ))
-      }).catch((err) => {
-        console.log(err)
-        cb(data)
-      })*/
   }
 
   async getBlockTimesAsync(data) {
+    let getbtime = async (height) => new Promise((resolve, reject) => {
+      this.indexer('blocktime', { height }, (err, data) => {
+        if (err) {
+          reject(err)
+        } else {
+          resolve(data)
+        }
+      })
+    })
+
+    for (let i=0; i < data.length; i++) {
+      let bt = await getbtime(data[i].block)
+      data[i].time = bt.time
+    }
+
+    return data
+  }
+
+  async getBlockTimesAsync_old(data) {
     let mapping = {}
 
     try {
@@ -713,95 +794,152 @@ export default class VexLib extends EventEmitter {
     let proxyGet = get.slice(0, -1)
     if (this.proxyPairs && ((proxyGive + '/' + proxyGet) in this.proxyPairs)) {
       this._recentOrders_proxyPair_(proxyGive, proxyGet, filters, cb)
+      return
     }
 
+    let bidFilters = filters.map(x => x)
+    let askFilters = filters.map(x => x)
+
+    bidFilters.push({ "field": "give_asset", "op": "=", "value": give })
+    bidFilters.push({ "field": "get_asset", "op": "=", "value": get })
+    askFilters.push({ "field": "give_asset", "op": "=", "value": get })
+    askFilters.push({ "field": "get_asset", "op": "=", "value": give })
+
     this.vex('get_orders', {
-      filters,
+      filters: bidFilters,
       order_by: 'block_index',
       order_dir: 'DESC',
       limit: 100
-    }, (err, data) => {
+    }, (err, bidData) => {
       if (err) {
         cb(err)
       } else {
-        let orders = data.result.filter(itm => !itm.status.startsWith('invalid')).map(itm => {
-          let type, price, giq, geq
-
-          let giveIsFiat = itm.give_asset in this.fiatTokensDivisor
-          let getIsFiat = itm.get_asset in this.fiatTokensDivisor
-
-          let giveDivisor = giveIsFiat?this.fiatTokensDivisor[itm.give_asset]:SATOSHIS
-          let getDivisor = getIsFiat?this.fiatTokensDivisor[itm.get_asset]:SATOSHIS
-
-          let swapDivider = false
-
-          if (itm.give_asset === give && itm.get_asset === get) {
-            type = 'sell'
-
-            if (itm.give_quantity === itm.give_remaining) {
-              giq = itm.give_quantity
-            } else {
-              giq = itm.give_quantity - itm.give_remaining
-            }
-
-            if (itm.get_quantity === itm.get_remaining) {
-              geq = itm.get_quantity
-            } else {
-              geq = itm.get_quantity - itm.get_remaining
-            }
-
-            let pgege = new BigNumber(geq).dividedBy(getDivisor)
-            let pgigi = new BigNumber(giq).dividedBy(giveDivisor)
-
-            price = pgege.dividedBy(pgigi).toNumber() //(geq / getDivisor) / (giq / giveDivisor)
-
-            swapDivider = true
-          } else if (itm.give_asset === get && itm.get_asset === give) {
-            type = 'buy'
-            if (itm.get_quantity === itm.get_remaining) {
-              giq = itm.get_quantity
-            } else {
-              giq = itm.get_quantity - itm.get_remaining
-            }
-
-            if (itm.give_quantity === itm.give_remaining) {
-              geq = itm.give_quantity
-            } else {
-              geq = itm.give_quantity - itm.give_remaining
-            }
-
-            let pgige = new BigNumber(giq).dividedBy(getDivisor)
-            let pgegi = new BigNumber(geq).dividedBy(giveDivisor).dividedBy(pgige)
-
-            price = pgegi.toNumber() //(geq / giveDivisor) / (giq / getDivisor) //(giq / giveDivisor) / (geq / getDivisor)
+        this.vex('get_orders', {
+          filters: askFilters,
+          order_by: 'block_index',
+          order_dir: 'DESC',
+          limit: 100
+        }, (err, askData) => {
+          if (err) {
+            cb(err)
           } else {
-            return undefined
+            let totals = bidData.result.concat(askData.result).sort((a, b) => b.block - a.block)
+            console.log('-++-> totals', totals)
+            processResults(totals)
           }
-
-          return {
-            type,
-            status: itm.status,
-            block: itm.block_index,
-            price,
-            qty: divideLimited(giq, swapDivider?giveDivisor:getDivisor),
-            total: divideLimited(geq, swapDivider?getDivisor:giveDivisor),
-            get: itm.get_quantity,
-            give: itm.give_quantity,
-            hash: itm.tx_hash
-          }
-        }).reduce((arr, itm) => {
-          if (itm) {
-            arr.push(itm)
-          }
-
-          return arr
-        }, [])
-
-        this.getBlockTimes(orders, (data) => {
-          cb(null, data)
         })
       }
     })
+
+    let processResults = (data) => {
+      let orders = data.filter(itm => !itm.status.startsWith('invalid')).map(itm => {
+        /*let type, price, giq, geq
+
+        let giveIsFiat = itm.give_asset in this.fiatTokensDivisor
+        let getIsFiat = itm.get_asset in this.fiatTokensDivisor
+
+        let giveDivisor = giveIsFiat?this.fiatTokensDivisor[itm.give_asset]:SATOSHIS
+        let getDivisor = getIsFiat?this.fiatTokensDivisor[itm.get_asset]:SATOSHIS
+
+        let swapDivider = false
+
+        if (itm.give_asset === give && itm.get_asset === get) {
+          type = 'sell'
+
+          if (itm.give_quantity === itm.give_remaining) {
+            giq = itm.give_quantity
+          } else {
+            giq = itm.give_quantity - itm.give_remaining
+          }
+
+          if (itm.get_quantity === itm.get_remaining) {
+            geq = itm.get_quantity
+          } else {
+            geq = itm.get_quantity - itm.get_remaining
+          }
+
+          let pgege = new BigNumber(geq).dividedBy(getDivisor)
+          let pgigi = new BigNumber(giq).dividedBy(giveDivisor)
+
+          price = pgege.dividedBy(pgigi).toNumber() //(geq / getDivisor) / (giq / giveDivisor)
+
+          swapDivider = true
+        } else if (itm.give_asset === get && itm.get_asset === give) {
+          type = 'buy'
+
+          if (itm.get_quantity === itm.get_remaining) {
+            giq = itm.get_quantity
+          } else {
+            giq = itm.get_quantity - itm.get_remaining
+          }
+
+          if (itm.give_quantity === itm.give_remaining) {
+            geq = itm.give_quantity
+          } else {
+            geq = itm.give_quantity - itm.give_remaining
+          }
+
+          let pgige = new BigNumber(giq).dividedBy(getDivisor)
+          let pgegi = new BigNumber(geq).dividedBy(giveDivisor) //.dividedBy(pgige)
+
+          price = pgegi.toNumber() //(geq / giveDivisor) / (giq / getDivisor) //(giq / giveDivisor) / (geq / getDivisor)
+        } else {
+          return undefined
+        }
+
+        return {
+          type,
+          status: itm.status,
+          block: itm.block_index,
+          price,
+          qty: divideLimited(giq, swapDivider?giveDivisor:getDivisor),
+          total: divideLimited(geq, swapDivider?getDivisor:giveDivisor),
+          get: itm.get_quantity,
+          give: itm.give_quantity,
+          hash: itm.tx_hash
+        }*/
+
+        let giveDivisor = (itm.give_asset in this.fiatTokensDivisor)?this.fiatTokensDivisor[itm.give_asset]:SATOSHIS
+        let getDivisor = (itm.get_asset in this.fiatTokensDivisor)?this.fiatTokensDivisor[itm.get_asset]:SATOSHIS
+        let type = (itm.give_asset === get && itm.get_asset === give)?'buy':'sell'
+
+        let giveq = (new BigNumber(itm.give_quantity)).minus(itm.give_remaining).dividedBy(giveDivisor)
+        let getq = (new BigNumber(itm.get_quantity)).minus(itm.get_remaining).dividedBy(getDivisor)
+        let price
+
+        if (getq.isZero()) {
+          price = (new BigNumber(itm.give_quantity)).dividedBy(itm.get_quantity)
+        } else {
+          price = giveq.dividedBy(getq)
+        }
+
+        return {
+          type,
+          status: itm.status,
+          block: itm.block_index,
+          price: price.toNumber(),
+          qty: giveq.toNumber(),
+          total: getq.toNumber(),
+          get: itm.get_quantity,
+          give: itm.give_quantity,
+          hash: itm.tx_hash,
+          get_remaining: itm.get_remaining,
+          give_remaining: itm.give_remaining
+        }
+
+      }).filter(x => !!x) /*.reduce((arr, itm) => {
+        if (itm) {
+          arr.push(itm)
+        }
+
+        return arr
+      }, [])*/
+
+      this.getBlockTimes(orders, (data) => {
+
+        cb(null, data)
+      })
+    }
   }
 
   getGlobalRecentOrders(give, get, cb) {
@@ -1139,12 +1277,48 @@ export default class VexLib extends EventEmitter {
     }
   }
 
+  proxy_createOrder(currentAddress, giveAsset, giveAmount, getAsset, getAmount, cb) {
+    if (!this.proxyAgent) {
+      console.log('Error: Proxy agent not configured on server')
+      cb(new Error('Proxy agent not configured on server'))
+      return
+    }
+
+    this.vex('create_send', {
+      source: currentAddress,
+      destination: this.proxyAgent,
+      asset: giveAsset,
+      quantity: giveAmount,
+      memo: `PRX:OP:${getAsset}:${getAmount}`
+    }, (err, data) => {
+      if (err) {
+        console.log('Error on Proxy create order', err)
+        cb(err)
+      } else if (data.error) {
+        console.log('Soft Error on Proxy create order', data.error)
+        cb(data.error)
+      } else {
+        cb(null, data.result)
+      }
+    })
+  }
+
   createOrder(giveAsset, giveAmount, getAsset, getAmount, cb) {
     let currentAddress = sessionStorage.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
       this.emit('need-login')
+      return
+    }
+
+    let proxyGive = giveAsset.slice(0, -1)
+    let proxyGet = getAsset.slice(0, -1)
+
+    let pair = proxyGive + '/' + proxyGet
+    let invertedPair = proxyGet + '/' + proxyGive
+    if (this.proxyPairs && (pair in this.proxyPairs || invertedPair in this.proxyPairs)) {
+      this.proxy_createOrder(currentAddress, giveAsset, giveAmount, getAsset, getAmount, cb)
       return
     }
 
@@ -1254,50 +1428,59 @@ export default class VexLib extends EventEmitter {
       cb(null, txid)
     }
 
-    this.axios.post('/vexapi/report', {
-      "text": `${getToken}:${getAmount}:${depositId}:${bankName}`,
-      "source": currentAddress
-    }).then((response) => {
-      if (response.status === 200) {
-        signTransaction(response.data.result, (signed) => {
-          return this.axios.post('/vexapi/sendtx', {
-            rawtx: signed
-          }).then((response) => {
-            let txid = response.data.result
+    if (this.experiments) {
+      let doExperiment = async () => {
+        let res = await xcpjsv2.broadcast(currentAddress, Math.floor(Date.now()/1000), 0, null, `${getToken}:${getAmount}:${depositId}:${bankName}`)
+        cb(null, res)
+      }
 
-            this.axios.get(`/vexapi/sesskey/${currentAddress}`).then((response) => {
-              if (response.status === 200) {
-                let key = Buffer.from(response.data.key, 'hex')
-                let aesCtr = new aesjs.ModeOfOperation.ctr(key, new aesjs.Counter(5))
-                let msg = JSON.stringify(files)
-                let textBytes = aesjs.utils.utf8.toBytes(msg)
-                let encryptedBytes = aesCtr.encrypt(textBytes)
-                let intermediaryHex = aesjs.utils.hex.fromBytes(encryptedBytes)
-                let encryptedHex = Buffer.from(intermediaryHex, 'hex').toString('base64')
+      doExperiment()
+    } else {
+      this.axios.post('/vexapi/report', {
+        "text": `${getToken}:${getAmount}:${depositId}:${bankName}`,
+        "source": currentAddress
+      }).then((response) => {
+        if (response.status === 200) {
+          signTransaction(response.data.result, (signed) => {
+            return this.axios.post('/vexapi/sendtx', {
+              rawtx: signed
+            }).then((response) => {
+              let txid = response.data.result
 
-                //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
-                this.axios.post(`/vexapi/deprep/${currentAddress}`, {
-                  data: encryptedHex,
-                  txid
-                }).then((data) => {
-                  success(txid)
-                }).catch((err) => {
-                  fail(err)
-                })
-              } else {
-                fail()
-              }
-            }).catch((err) => {
-              fail(err)
+              this.axios.get(`/vexapi/sesskey/${currentAddress}`).then((response) => {
+                if (response.status === 200) {
+                  let key = Buffer.from(response.data.key, 'hex')
+                  let aesCtr = new aesjs.ModeOfOperation.ctr(key, new aesjs.Counter(5))
+                  let msg = JSON.stringify(files)
+                  let textBytes = aesjs.utils.utf8.toBytes(msg)
+                  let encryptedBytes = aesCtr.encrypt(textBytes)
+                  let intermediaryHex = aesjs.utils.hex.fromBytes(encryptedBytes)
+                  let encryptedHex = Buffer.from(intermediaryHex, 'hex').toString('base64')
+
+                  //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
+                  this.axios.post(`/vexapi/deprep/${currentAddress}`, {
+                    data: encryptedHex,
+                    txid
+                  }).then((data) => {
+                    success(txid)
+                  }).catch((err) => {
+                    fail(err)
+                  })
+                } else {
+                  fail()
+                }
+              }).catch((err) => {
+                fail(err)
+              })
             })
           })
-        })
-      } else {
-        fail()
-      }
-    }).catch((err) => {
-      fail(err)
-    })
+        } else {
+          fail()
+        }
+      }).catch((err) => {
+        fail(err)
+      })
+    }
   }
 
   generateWithdrawal(token, amount, address, info, cb) {
@@ -1356,10 +1539,10 @@ export default class VexLib extends EventEmitter {
     } else {
       let tokNet = token.slice(0, -1)
 
-      if (tokNet === 'PTR') {
+      /*if (tokNet === 'PTR') {
         tokNet = 'NEM'
         address = address.split('-').join('')
-      }
+      }*/
 
       if (validate(address, tokNet)) {
         if (!info) {
@@ -1396,33 +1579,42 @@ export default class VexLib extends EventEmitter {
     }
     amount = Math.round(parseFloat(amount) * divisor)
 
-    this.axios.post('/vexapi/withdraw', {
-      "asset": token,
-      "quantity": amount,
-      "memo": memo,
-      "memo_is_hex": isHex,
-      "source": currentAddress
-    }).then((response) => {
-      if (response.status === 200) {
-        if (response.data.error) {
-          fail(response.data.error)
-        } else if (!response.data) {
-          fail(response.error)
-        } else {
-          signTransaction(response.data.result, (signed) => {
-            this.axios.post('/vexapi/sendtx', {
-              rawtx: signed
-            }).then((response) => {
-              success(response.data.result)
-            })
-          })
-        }
-      } else {
-        fail('error-building-tx')
+    if (this.experiments) {
+      let doExperiment = async () => {
+        let res = await xcpjsv2.send(currentAddress, this.unspendableAddress, token, amount, memo, isHex)
+        success(res)
       }
-    }).catch((err) => {
-      fail(err)
-    })
+
+      doExperiment()
+    } else {
+      this.axios.post('/vexapi/withdraw', {
+        "asset": token,
+        "quantity": amount,
+        "memo": memo,
+        "memo_is_hex": isHex,
+        "source": currentAddress
+      }).then((response) => {
+        if (response.status === 200) {
+          if (response.data.error) {
+            fail(response.data.error)
+          } else if (!response.data) {
+            fail(response.error)
+          } else {
+            signTransaction(response.data.result, (signed) => {
+              this.axios.post('/vexapi/sendtx', {
+                rawtx: signed
+              }).then((response) => {
+                success(response.data.result)
+              })
+            })
+          }
+        } else {
+          fail('error-building-tx')
+        }
+      }).catch((err) => {
+        fail(err)
+      })
+    }
   }
 
   generateTransfer(token, amount, destination, memo, twofa, cb) {
@@ -1763,7 +1955,8 @@ export default class VexLib extends EventEmitter {
       fee_fraction: 0,
       fee: 10000,
       timestamp: Math.floor(Date.now()/1000),
-      value: 0
+      value: 0,
+      fee_per_kb: 10000
     }, (err, data) => {
       if (err) {
         fail(err)
@@ -1817,7 +2010,8 @@ export default class VexLib extends EventEmitter {
         }
       ],
       order_by: 'tx_index',
-      order_dir: 'DESC'
+      order_dir: 'DESC',
+      status: 'valid'
     }, (err, data) => {
       if (err) {
         fail(err)
@@ -1844,6 +2038,7 @@ export default class VexLib extends EventEmitter {
       cb(null, challenge)
     }
 
+    console.log('Current address:', currentAddress)
     this.axios.get(`/vexapi/challenge/${currentAddress}`).then((response) => {
       if (response.status === 200) {
         success(response.data.challenge)
@@ -1893,16 +2088,24 @@ export default class VexLib extends EventEmitter {
                     'token': response.data.accessToken
                   }})
 
-                  if (!this._is_authed_) {
+                  /*if (!this._is_authed_) {
                     this.emit('needauth')
-                  }
+                  }*/
 
                   this.userEnabled((err, isEnabled) => {
                     if (err) {
                       cb(err)
                     } else {
                       if (isEnabled) {
+                        this._authed_()
                         this.socket.emit('auth', { address: currentAddress, token: response.data.accessToken, twofa: twofacode })
+
+                        xcpjsv2.services.transactionSigner.registerSigner(currentAddress, async tx => {
+                          let keyPair = getKeyPairFromSessionStorage()
+                          let signedHex = await new Promise((resolve) => buildAndSign(keyPair, tx, resolve))
+
+                          return signedHex
+                        })
                         cb(null, response.data)
                       } else {
                         cb('user-not-enabled')
@@ -1991,6 +2194,7 @@ export default class VexLib extends EventEmitter {
         this.axios = defaultAxios()
         sessionStorage.removeItem('currentAddress')
         sessionStorage.removeItem('currentMnemonic')
+        xcpjsv2.services.transactionSigner.unregisterSigner(currentAddress)
         cb(null, true)
       })
       .catch((err) => {
@@ -2032,7 +2236,8 @@ export default class VexLib extends EventEmitter {
           op: '==',
           value: this.exchangeAddress
         }
-      ]
+      ],
+      status: 'valid'
     }, (err, data) => {
       if (err) {
         cb(err)
@@ -2125,5 +2330,10 @@ export default class VexLib extends EventEmitter {
     let {address} = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey, network: bitcoin.networks.testnet })
 
     return address
+  }
+
+  setExperiments(n) {
+    localStorage.setItem('experiments', n)
+    this.experiments = n === '1'
   }
 }
