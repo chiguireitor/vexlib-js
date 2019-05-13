@@ -39,6 +39,9 @@ import xcpjsv2 from 'xcpjsv2'
 
 const build="${BUILD}"
 
+const localStorageProxy = localStorage || require('localstorage-memory')
+const sessionStorageProxy = sessionStorage || require('localstorage-memory')
+
 export const SATOSHIS = 100000000
 
 const bip39SpanishFix = {
@@ -104,6 +107,7 @@ export function softLimit8Decimals(v) {
   }
 }
 
+//var window = window || { location: { hostname: '-' } }
 var baseUrl = ((window.location.hostname === 'localhost') || (checkIp(window.location.hostname).isRfc1918))?`http://${window.location.hostname}:8085`:window.location.origin
 
 function defaultAxios(ob) {
@@ -138,7 +142,7 @@ function fixAccents(w) {
 }
 
 function getKeyPairFromSessionStorage() {
-  let mnemonic = sessionStorage.getItem('currentMnemonic')
+  let mnemonic = sessionStorageProxy.getItem('currentMnemonic')
   let seedHex = bip39.mnemonicToSeedHex(fixAccents(mnemonic))
   let d = bitcoin.crypto.sha256(Buffer.from(seedHex, 'hex'))
   return bitcoin.ECPair.fromPrivateKey(d, {network: bitcoin.networks.testnet})
@@ -172,7 +176,7 @@ function buildAndSign(keyPair, tx, cb) {
 
 function signTransaction(rawHex, cb) {
   let tx = bitcoin.Transaction.fromHex(rawHex)
-  let device = sessionStorage.getItem('device')
+  let device = sessionStorageProxyProxy.getItem('device')
   console.log(device)
 
   if ((device === 'userpass') || (device === null)) {
@@ -220,6 +224,28 @@ export default class VexLib extends EventEmitter {
     devices[name] = proto
   }
 
+  experimentList = []
+  registerExperiment(name, description) {
+    this.experimentList.push({name, description})
+
+    return true
+  }
+
+  experimentResult(ob) {
+    setImmediate(async () => {
+      try {
+        let url = ((window.location.hostname === 'localhost') || (checkIp(window.location.hostname).isRfc1918))?`http://${window.location.hostname}:3095`:'https://metrics.contimita.com/'
+        await axios.post(url, {
+          data: ob
+        })
+
+        console.log('Ex: ' + ob.type + ' done')
+      } catch(err) {
+        console.log('Error while reporting metrics to experiment:', err)
+      }
+    })
+  }
+
   constructor(options) {
     super()
 
@@ -237,7 +263,7 @@ export default class VexLib extends EventEmitter {
       VEST: 100
     }
 
-    this.experiments = localStorage.getItem('experiments') === '1'
+    this.experiments = localStorageProxy.getItem('experiments') === '1'
 
     this._is_connected_ = false
     this._is_authed_ = false
@@ -339,6 +365,7 @@ export default class VexLib extends EventEmitter {
     this.socket.on('indexer', vexApiHandler)
     this.socket.on('proxy', vexApiHandler)
     this.socket.on('orders', vexApiHandler)
+    this.socket.on('mdb', vexApiHandler)
     this.socket.on('need2fa', (data) => this.emit('need2fa', data))
     this.socket.on('needauth', (data) => this.emit('needauth', data))
     this.socket.on('authok', () => { this.emit('authok'); this._authed_() })
@@ -445,6 +472,10 @@ export default class VexLib extends EventEmitter {
     this._api_('ldb', method, params, cb)
   }
 
+  mdb(method, params, cb) {
+    this._api_('mdb', method, params, cb)
+  }
+
   index(method, params, cb) {
     this._api_('index', method, params, cb)
   }
@@ -478,7 +509,7 @@ export default class VexLib extends EventEmitter {
   }
 
   getBalances(cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+    let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -521,7 +552,7 @@ export default class VexLib extends EventEmitter {
   }
 
   userEnabled(cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+    let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -761,7 +792,7 @@ export default class VexLib extends EventEmitter {
 
   _recentOrders_proxyPair_(give, get, filters, cb) {
     let endpoint = 'get_orders'
-    if (filters.filter(x => x.field === 'source' && x.value === sessionStorage.getItem('currentAddress')).length > 0) {
+    if (filters.filter(x => x.field === 'source' && x.value === sessionStorageProxy.getItem('currentAddress')).length > 0) {
       endpoint = 'get_my_orders'
     }
 
@@ -951,7 +982,7 @@ export default class VexLib extends EventEmitter {
       cb = addr
       addr = null
     }
-    let currentAddress = addr || sessionStorage.getItem('currentAddress')
+    let currentAddress = addr || sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -1008,15 +1039,15 @@ export default class VexLib extends EventEmitter {
 
   getUser(email, password, cb) {
     let itemKey = `_user_data_${email}_`
-    let userData = localStorage.getItem(itemKey)
+    let userData = localStorageProxy.getItem(itemKey)
 
     let fail = (msg, data) => {
       cb(msg || 'no-user-found', data)
     }
 
     let success = ({address, mnemonic}) => {
-      sessionStorage.setItem('currentAddress', address)
-      sessionStorage.setItem('currentMnemonic', fixAccents(mnemonic))
+      sessionStorageProxy.setItem('currentAddress', address)
+      sessionStorageProxy.setItem('currentMnemonic', fixAccents(mnemonic))
       cb(null, {address, mnemonic})
     }
 
@@ -1038,7 +1069,7 @@ export default class VexLib extends EventEmitter {
     }
 
     let store = (data) => {
-      localStorage.setItem(itemKey, data)
+      localStorageProxy.setItem(itemKey, data)
     }
 
     let tryLogin = () => {
@@ -1135,7 +1166,7 @@ export default class VexLib extends EventEmitter {
               console.log('cant sign', sigResult)
               cb('couldnt-sign')
             } else {
-              sessionStorage.setItem('currentMnemonic', fixAccents(mnemonic))
+              sessionStorageProxy.setItem('currentMnemonic', fixAccents(mnemonic))
               // TODO: Obtener el usuario guardado en el servidor para tener el challenge y firmarlo
               this.createUser(email, password, uiLang, sigResult, (err, data) => {
                 if (err && err === 'bad-signature' && tries > 0) {
@@ -1149,7 +1180,7 @@ export default class VexLib extends EventEmitter {
           }
 
           /*if (externalToken) {
-            sessionStorage.setItem('device', externalToken.getName())
+            sessionStorageProxy.setItem('device', externalToken.getName())
             externalToken.signMessage(challenge, postChallenge)
           } else {*/
             let keyPair = getKeyPairFromSessionStorage()
@@ -1210,14 +1241,14 @@ export default class VexLib extends EventEmitter {
 
       let success = () => {
         if (externalToken) {
-          sessionStorage.setItem('device', externalToken.getName())
-          localStorage.setItem(itemKey, externalToken.getName())
+          sessionStorageProxy.setItem('device', externalToken.getName())
+          localStorageProxy.setItem(itemKey, externalToken.getName())
           cb(null, {address, device: externalToken.getName()})
         } else {
-          sessionStorage.setItem('device', 'userpass')
-          sessionStorage.setItem('currentAddress', address)
-          sessionStorage.setItem('currentMnemonic', fixAccents(mnemonic))
-          localStorage.setItem(itemKey, encryptedHex)
+          sessionStorageProxy.setItem('device', 'userpass')
+          sessionStorageProxy.setItem('currentAddress', address)
+          sessionStorageProxy.setItem('currentMnemonic', fixAccents(mnemonic))
+          localStorageProxy.setItem(itemKey, encryptedHex)
           let keyPair = VexLib.keyPairFromMnemonic(mnemonic)
           cb(null, {address, mnemonic, keyPair})
         }
@@ -1256,7 +1287,7 @@ export default class VexLib extends EventEmitter {
     } else {
       let mnemonic
 
-      mnemonic = sessionStorage.getItem('currentMnemonic')
+      mnemonic = sessionStorageProxy.getItem('currentMnemonic')
       if (!mnemonic) {
         mnemonic = bip39.generateMnemonic(null, null, bip39.wordlists[uiLang])
       }
@@ -1303,8 +1334,9 @@ export default class VexLib extends EventEmitter {
     })
   }
 
+  _ex_createOrderEnabled = this.registerExperiment('Crear ordenes', 'Crear órdenes usando xcpjsv2. Aumenta sustancialmente la velocidad de creación de órdenes.')
   createOrder(giveAsset, giveAmount, getAsset, getAmount, cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+    let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -1334,31 +1366,44 @@ export default class VexLib extends EventEmitter {
       cb(null, txid)
     }
 
-    this.axios.post('/vexapi/order', {
-      "give_asset": giveAsset,
-      "give_quantity": giveAmount,
-      "get_asset": getAsset,
-      "get_quantity": getAmount,
-      "source": currentAddress
-    }).then((response) => {
-      if (response.status === 200) {
-        signTransaction(response.data.result, (signed) => {
-          this.axios.post('/vexapi/sendtx', {
-            rawtx: signed
-          }).then((response) => {
-            success(response.data.result)
-          })
+    if (this.experiments && this._ex_createOrderEnabled) {
+      let doExperiment = async () => {
+        let res = await xcpjsv2.order(currentAddress, giveAsset, giveAmount, getAsset, getAmount)
+        success(res)
+        this.experimentResult({
+          type: 'createOrder',
+          address: currentAddress, giveAsset, giveAmount, getAsset, getAmount, res
         })
-      } else {
-        fail('error-creating-order-bad-response')
       }
-    }).catch((err) => {
-      fail(err)
-    })
+
+      doExperiment()
+    } else {
+      this.axios.post('/vexapi/order', {
+        "give_asset": giveAsset,
+        "give_quantity": giveAmount,
+        "get_asset": getAsset,
+        "get_quantity": getAmount,
+        "source": currentAddress
+      }).then((response) => {
+        if (response.status === 200) {
+          signTransaction(response.data.result, (signed) => {
+            this.axios.post('/vexapi/sendtx', {
+              rawtx: signed
+            }).then((response) => {
+              success(response.data.result)
+            })
+          })
+        } else {
+          fail('error-creating-order-bad-response')
+        }
+      }).catch((err) => {
+        fail(err)
+      })
+    }
   }
 
   cancelOrder(txid, cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+    let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -1379,6 +1424,7 @@ export default class VexLib extends EventEmitter {
       cb(null, txid)
     }
 
+    // TODO update xcpjsv2 to support cancels
     this.axios.post('/vexapi/cancelorder', {
       "offer_hash": txid,
       "source": currentAddress
@@ -1404,8 +1450,9 @@ export default class VexLib extends EventEmitter {
     })
   }
 
+  _ex_createFiatDepositEnabled = this.registerExperiment('Reporte de depósitos', 'Reporte de depósitos usando xcpjsv2. Aumenta sustancialmente la velocidad de generación de reportes de depósitos (sin tomar en cuenta el tamaño del archivo subido).')
   reportFiatDeposit(getToken, getAmount, depositId, bankName, files, cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+    let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -1421,17 +1468,51 @@ export default class VexLib extends EventEmitter {
 
       console.log(err)
 
-      cb('error-creating-report')
+      cb('error-creating-report: ' + err)
     }
 
     let success = (txid) => {
       cb(null, txid)
     }
 
-    if (this.experiments) {
+    let uploadData = (txid) => {
+      this.axios.get(`/vexapi/sesskey/${currentAddress}`).then((response) => {
+        if (response.status === 200) {
+          let key = Buffer.from(response.data.key, 'hex')
+          let aesCtr = new aesjs.ModeOfOperation.ctr(key, new aesjs.Counter(5))
+          let msg = JSON.stringify(files)
+          let textBytes = aesjs.utils.utf8.toBytes(msg)
+          let encryptedBytes = aesCtr.encrypt(textBytes)
+          let intermediaryHex = aesjs.utils.hex.fromBytes(encryptedBytes)
+          let encryptedHex = Buffer.from(intermediaryHex, 'hex').toString('base64')
+
+          //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
+          this.axios.post(`/vexapi/deprep/${currentAddress}`, {
+            data: encryptedHex,
+            txid
+          }).then((data) => {
+            success(txid)
+          }).catch((err) => {
+            fail(err)
+          })
+        } else {
+          fail()
+        }
+      }).catch((err) => {
+        fail(err)
+      })
+    }
+
+    if (this.experiments && this._ex_createFiatDepositEnabled) {
       let doExperiment = async () => {
         let res = await xcpjsv2.broadcast(currentAddress, Math.floor(Date.now()/1000), 0, null, `${getToken}:${getAmount}:${depositId}:${bankName}`)
-        cb(null, res)
+        console.log('DEP:', res)
+        uploadData(res.data.result)
+
+        this.experimentResult({
+          type: 'createFiatDeposit',
+          address: currentAddress, memo: `${getToken}:${getAmount}:${depositId}:${bankName}`, res
+        })
       }
 
       doExperiment()
@@ -1447,31 +1528,7 @@ export default class VexLib extends EventEmitter {
             }).then((response) => {
               let txid = response.data.result
 
-              this.axios.get(`/vexapi/sesskey/${currentAddress}`).then((response) => {
-                if (response.status === 200) {
-                  let key = Buffer.from(response.data.key, 'hex')
-                  let aesCtr = new aesjs.ModeOfOperation.ctr(key, new aesjs.Counter(5))
-                  let msg = JSON.stringify(files)
-                  let textBytes = aesjs.utils.utf8.toBytes(msg)
-                  let encryptedBytes = aesCtr.encrypt(textBytes)
-                  let intermediaryHex = aesjs.utils.hex.fromBytes(encryptedBytes)
-                  let encryptedHex = Buffer.from(intermediaryHex, 'hex').toString('base64')
-
-                  //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
-                  this.axios.post(`/vexapi/deprep/${currentAddress}`, {
-                    data: encryptedHex,
-                    txid
-                  }).then((data) => {
-                    success(txid)
-                  }).catch((err) => {
-                    fail(err)
-                  })
-                } else {
-                  fail()
-                }
-              }).catch((err) => {
-                fail(err)
-              })
+              uploadData(response.data.result)
             })
           })
         } else {
@@ -1483,8 +1540,9 @@ export default class VexLib extends EventEmitter {
     }
   }
 
+  _ex_generateWithdrawalEnabled = this.registerExperiment('Generar retiros (sin 2fa)', 'Generar retiros usando xcpjsv2, no soporta 2fa. Aumenta sustancialmente la velocidad de generación de retiros.')
   generateWithdrawal(token, amount, address, info, cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+    let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -1579,10 +1637,15 @@ export default class VexLib extends EventEmitter {
     }
     amount = Math.round(parseFloat(amount) * divisor)
 
-    if (this.experiments) {
+    if (this.experiments && this._ex_generateWithdrawalEnabled) {
       let doExperiment = async () => {
         let res = await xcpjsv2.send(currentAddress, this.unspendableAddress, token, amount, memo, isHex)
         success(res)
+
+        this.experimentResult({
+          type: 'generateWithdrawal',
+          address: currentAddress, token, amount, memo, isHex, res
+        })
       }
 
       doExperiment()
@@ -1617,12 +1680,13 @@ export default class VexLib extends EventEmitter {
     }
   }
 
+  _ex_generateTransferEnabled = this.registerExperiment('Generar transferencias (sin 2fa)', 'Generar transferencias usando xcpjsv2, no soporta 2fa. Aumenta sustancialmente la velocidad de generación de transferencias.')
   generateTransfer(token, amount, destination, memo, twofa, cb) {
     if (!cb && twofa && typeof(twofa) === 'function') {
       cb = twofa
       twofa = null
     }
-    let currentAddress = sessionStorage.getItem('currentAddress')
+    let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -1668,25 +1732,38 @@ export default class VexLib extends EventEmitter {
       csOb.twofa = twofa
     }
 
-    this.vex('create_send', csOb, (err, data) => {
-      if (err) {
-        console.log('err', err)
-        fail(err)
-      } else if (data.error) {
-        console.log('err', data.error)
-        fail(data.error)
-      } else {
-        signTransaction(data.result, (signed) => {
-          this.axios.post('/vexapi/sendtx', {
-            rawtx: signed
-          }).then((response) => {
-            success(response.data.result)
-          }).catch((err) => {
-            fail(err)
-          })
+    if (this.experiments && this._ex_generateTransferEnabled) {
+      let doExperiment = async () => {
+        let res = await xcpjsv2.send(currentAddress, csOb.source, csOb.destination, csOb.token, csOb.quantity, csOb.memo)
+        success(txid)
+        this.experimentResult({
+          type: 'generateTransfer',
+          address: currentAddress, csOb, res
         })
       }
-    })
+
+      doExperiment()
+    } else {
+      this.vex('create_send', csOb, (err, data) => {
+        if (err) {
+          console.log('err', err)
+          fail(err)
+        } else if (data.error) {
+          console.log('err', data.error)
+          fail(data.error)
+        } else {
+          signTransaction(data.result, (signed) => {
+            this.axios.post('/vexapi/sendtx', {
+              rawtx: signed
+            }).then((response) => {
+              success(response.data.result)
+            }).catch((err) => {
+              fail(err)
+            })
+          })
+        }
+      })
+    }
 
     /*this.axios.post('/vexapi/withdraw', {
       "asset": token,
@@ -1717,8 +1794,8 @@ export default class VexLib extends EventEmitter {
     })*/
   }
 
-  generateCodeWithdrawal(token, amount, code, cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+  /*generateCodeWithdrawal(token, amount, code, cb) {
+    let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -1778,7 +1855,7 @@ export default class VexLib extends EventEmitter {
   }
 
   generatePaymentBill(token, quantity, concept, cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+    let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -1816,10 +1893,10 @@ export default class VexLib extends EventEmitter {
     }).catch((err) => {
       fail(err)
     })
-  }
+  }*/
 
   getFiatDepositReports(cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+    let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -1861,7 +1938,7 @@ export default class VexLib extends EventEmitter {
       addr = null
     }
 
-    let currentAddress = addr || sessionStorage.getItem('currentAddress')
+    let currentAddress = addr || sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -1895,7 +1972,7 @@ export default class VexLib extends EventEmitter {
       addr = null
     }
 
-    let currentAddress = addr || sessionStorage.getItem('currentAddress')
+    let currentAddress = addr || sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -1927,8 +2004,9 @@ export default class VexLib extends EventEmitter {
     })
   }
 
+  _ex_generateDepositAddressEnabled = this.registerExperiment('Generar direcciones de depósito', 'Generar direcciones de depósito usando xcpjsv2. Aumenta sustancialmente la velocidad de las solicitudes de generación de direcciones de depósitos (aunque no influye en la velocidad de respuesta de las billeteras del exchange).')
   generateTokenDepositAddress(token, cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+    let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -1949,33 +2027,46 @@ export default class VexLib extends EventEmitter {
       cb(null, status)
     }
 
-    this.vex('create_broadcast', {
-      source: currentAddress,
-      text: `GENADDR:${token}`,
-      fee_fraction: 0,
-      fee: 10000,
-      timestamp: Math.floor(Date.now()/1000),
-      value: 0,
-      fee_per_kb: 10000
-    }, (err, data) => {
-      if (err) {
-        fail(err)
-      } else {
-        signTransaction(data.result, (signedTransaction) => {
-          this.axios.post('/vexapi/sendtx', {
-            rawtx: signedTransaction
-          }).then((response) => {
-            success(response.data.result)
-          }).catch(err => {
-            fail(err)
-          })
+    if (this.experiments && this._ex_generateDepositAddressEnabled) {
+      let doExperiment = async () => {
+        let res = await xcpjsv2.broadcast(currentAddress, Math.floor(Date.now()/1000), 0, null, `GENADDR:${token}`)
+        success(res)
+        this.experimentResult({
+          type: 'generateDepositAddress',
+          address: currentAddress, token, res
         })
       }
-    })
+
+      doExperiment()
+    } else {
+      this.vex('create_broadcast', {
+        source: currentAddress,
+        text: `GENADDR:${token}`,
+        fee_fraction: 0,
+        fee: 10000,
+        timestamp: Math.floor(Date.now()/1000),
+        value: 0,
+        fee_per_kb: 10000
+      }, (err, data) => {
+        if (err) {
+          fail(err)
+        } else {
+          signTransaction(data.result, (signedTransaction) => {
+            this.axios.post('/vexapi/sendtx', {
+              rawtx: signedTransaction
+            }).then((response) => {
+              success(response.data.result)
+            }).catch(err => {
+              fail(err)
+            })
+          })
+        }
+      })
+    }
   }
 
   getTokenDepositAddress(token, cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+    let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('login-first')
@@ -2022,7 +2113,7 @@ export default class VexLib extends EventEmitter {
   }
 
   getChallenge(cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+    let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('needs-html-login-first')
@@ -2068,7 +2159,7 @@ export default class VexLib extends EventEmitter {
     }
 
     let sign = (currentAddress) => {
-      sessionStorage.setItem('currentAddress', currentAddress)
+      sessionStorageProxy.setItem('currentAddress', currentAddress)
       this.getChallenge((err, challenge) => {
         if (err) {
           console.log('Error getting challenge')
@@ -2124,7 +2215,7 @@ export default class VexLib extends EventEmitter {
           }
 
           if (externalToken) {
-            sessionStorage.setItem('device', externalToken.getName())
+            sessionStorageProxy.setItem('device', externalToken.getName())
             externalToken.signMessage(challenge, postChallenge)
           } else {
             let keyPair = getKeyPairFromSessionStorage()
@@ -2139,7 +2230,7 @@ export default class VexLib extends EventEmitter {
     }
 
     if (!externalToken) {
-      sign(sessionStorage.getItem('currentAddress'))
+      sign(sessionStorageProxy.getItem('currentAddress'))
     } else {
       externalToken.getAddress(sign)
     }
@@ -2181,7 +2272,7 @@ export default class VexLib extends EventEmitter {
   }
 
   remoteLogout(cb) {
-    let currentAddress = sessionStorage.getItem('currentAddress')
+    let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
     if (!currentAddress) {
       cb('needs-html-login-first')
@@ -2192,15 +2283,15 @@ export default class VexLib extends EventEmitter {
     this.axios.get(`/vexapi/logout`)
       .then(() => {
         this.axios = defaultAxios()
-        sessionStorage.removeItem('currentAddress')
-        sessionStorage.removeItem('currentMnemonic')
+        sessionStorageProxy.removeItem('currentAddress')
+        sessionStorageProxy.removeItem('currentMnemonic')
         xcpjsv2.services.transactionSigner.unregisterSigner(currentAddress)
         cb(null, true)
       })
       .catch((err) => {
         this.axios = defaultAxios()
-        sessionStorage.removeItem('currentAddress')
-        sessionStorage.removeItem('currentMnemonic')
+        sessionStorageProxy.removeItem('currentAddress')
+        sessionStorageProxy.removeItem('currentMnemonic')
         cb(err)
       })
   }
@@ -2276,7 +2367,7 @@ export default class VexLib extends EventEmitter {
   }
 
   getWIF() {
-    let device = sessionStorage.getItem('device')
+    let device = sessionStorageProxy.getItem('device')
 
     if ((device === 'userpass') || (device === null)) {
       let keyPair = getKeyPairFromSessionStorage()
@@ -2333,7 +2424,7 @@ export default class VexLib extends EventEmitter {
   }
 
   setExperiments(n) {
-    localStorage.setItem('experiments', n)
+    localStorageProxy.setItem('experiments', n)
     this.experiments = n === '1'
   }
 }
