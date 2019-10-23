@@ -36,11 +36,20 @@ import io from 'socket.io-client'
 import checkIp from 'check-ip'
 import BigNumber from 'bignumber.js'
 import xcpjsv2 from 'xcpjsv2'
+import Cookies from 'universal-cookie'
 
 const build="${BUILD}"
 
-const localStorageProxy = localStorage || require('localstorage-memory')
-const sessionStorageProxy = sessionStorage || require('localstorage-memory')
+function getStorage(type) {
+  if (typeof(window) !== 'undefined' && type + 'Storage' in window) {
+    return window[type + 'Storage']
+  } else {
+    return require('localstorage-memory')
+  }
+}
+
+const localStorageProxy = getStorage('local')
+const sessionStorageProxy = getStorage('session')
 
 export const SATOSHIS = 100000000
 
@@ -108,7 +117,14 @@ export function softLimit8Decimals(v) {
 }
 
 //var window = window || { location: { hostname: '-' } }
-var baseUrl = ((window.location.hostname === 'localhost') || (checkIp(window.location.hostname).isRfc1918))?`http://${window.location.hostname}:8085`:window.location.origin
+function getDefaultBaseUrl() {
+  if (typeof(window) !== 'undefined') {
+    return ((window.location.hostname === 'localhost') || (checkIp(window.location.hostname).isRfc1918))?`http://${window.location.hostname}:8085`:window.location.origin
+  } else {
+    return ''
+  }
+}
+var baseUrl = getDefaultBaseUrl()
 
 function defaultAxios(ob) {
   if (!ob) {
@@ -176,7 +192,7 @@ function buildAndSign(keyPair, tx, cb) {
 
 function signTransaction(rawHex, cb) {
   let tx = bitcoin.Transaction.fromHex(rawHex)
-  let device = sessionStorageProxyProxy.getItem('device')
+  let device = sessionStorageProxy.getItem('device')
   console.log(device)
 
   if ((device === 'userpass') || (device === null)) {
@@ -251,10 +267,15 @@ export default class VexLib extends EventEmitter {
 
     this.lang = options.lang || 'EN'
     this.exchangeAddress = options.exchangeAddress || ''
+    this.issuanceAddress = options.issuanceAddress || options.exchangeAddress || ''
 
     console.log('VexLib init', this.lang, this.exchangeAddress, build)
-
-    this.axios = defaultAxios()
+    this.experiments = localStorageProxy.getItem('experiments') === '1'
+    this.axios = defaultAxios({
+      headers: {
+        test: this.experiments?'1':'0'
+      }
+    })
 
     this.lastVexSeq = 0
     this.cbList = {}
@@ -263,7 +284,9 @@ export default class VexLib extends EventEmitter {
       VEST: 100
     }
 
-    this.experiments = localStorageProxy.getItem('experiments') === '1'
+    if (this.experiments) {
+      axios.defaults.headers.common['test'] = this.experiments?'1':'0'
+    }
 
     this._is_connected_ = false
     this._is_authed_ = false
@@ -278,6 +301,7 @@ export default class VexLib extends EventEmitter {
           console.log('Config loaded', response.data)
 
           this.exchangeAddress = response.data.exchangeAddress
+          this.issuanceAddress = response.data.issuanceAddress || response.data.exchangeAddress
           this.proxyAgent = response.data.proxyAgent || ''
           this.maintenance = response.data.maintenance || ''
           this.unspendableAddress = 'mvCounterpartyXXXXXXXXXXXXXXW24Hef'
@@ -290,6 +314,7 @@ export default class VexLib extends EventEmitter {
                 console.log('Config loaded', response.data)
 
                 this.exchangeAddress = response.data.exchangeAddress
+                this.issuanceAddress = response.data.issuanceAddress || response.data.exchangeAddress
                 this.proxyAgent = response.data.proxyAgent || ''
                 this.maintenance = response.data.maintenance || ''
                 this.unspendableAddress = 'mvCounterpartyXXXXXXXXXXXXXXW24Hef'
@@ -319,6 +344,14 @@ export default class VexLib extends EventEmitter {
     xcpjsv2.setUtxoService(xcpjsv2.services.indexdUtxos(baseUrl + '/index/'))
   }
 
+  async addrTxs(addr) {
+    return (await axios.get(`${baseUrl}/index/a/${addr}/txs`)).data
+  }
+
+  parseRawTransaction(rawhex) {
+    return bitcoin.Transaction.fromHex(rawhex)
+  }
+
   tokenDivisor(tkn) {
     if (tkn in this.fiatTokensDivisor) {
       return this.fiatTokensDivisor[tkn]
@@ -333,6 +366,7 @@ export default class VexLib extends EventEmitter {
     this.socket.on('connect', this._socket_connect_)
     this.socket.on('new block', this._socket_newblock_)
     this.socket.on('new dbupdate', this._socket_newdbupdate_)
+    this.socket.on('new notifs', this._socket_newnotifs_)
     this.socket.on('updates', this._socket_updates_)
     this.socket.on('close', this._socket_close_)
     this.socket.on('error', (err) => console.log('Socket error:', err))
@@ -413,6 +447,10 @@ export default class VexLib extends EventEmitter {
     //this.vex('')
   }
 
+  _socket_newnotifs_ = (notifs) => {
+    this.emit('new notifs', notifs)
+  }
+
   _socket_updates_ = (updates) => {
     this.emit('updates', updates)
   }
@@ -468,12 +506,36 @@ export default class VexLib extends EventEmitter {
     this._api_('db', method, params, cb, noAuthNeeded)
   }
 
+  dbAsync(method, params) {
+    return new Promise((resolve, reject) => {
+      this._api_('db', method, params, (err, data) => {
+        if (err) {
+          reject(err)
+        } else {
+          resolve(data)
+        }
+      })
+    })
+  }
+
   ldb(method, params, cb) {
     this._api_('ldb', method, params, cb)
   }
 
   mdb(method, params, cb) {
     this._api_('mdb', method, params, cb)
+  }
+
+  mdbAsync(method, params) {
+    return new Promise((resolve, reject) => {
+      this._api_('mdb', method, params, (err, data) => {
+        if (err) {
+          reject(err)
+        } else {
+          resolve(data)
+        }
+      })
+    })
   }
 
   index(method, params, cb) {
@@ -568,6 +630,30 @@ export default class VexLib extends EventEmitter {
         cb(null, data.length > 0)
       }
     })*/
+
+    cb(null, true)
+    // Deprecated the UTXOs thing
+    /*this.vex('get_unspent_txouts', {
+      address: currentAddress,
+      unconfirmed: true
+    }, (err, data) => {
+      //console.log('Got from utxo', err, data)
+      if (err) {
+        cb(err)
+      } else {
+        cb(null, data.result && data.result.length > 0)
+      }
+    }, true)*/
+  }
+
+  hasUtxos(cb) {
+    let currentAddress = sessionStorageProxy.getItem('currentAddress')
+
+    if (!currentAddress) {
+      cb('login-first')
+      this.emit('need-login')
+      return
+    }
 
     this.vex('get_unspent_txouts', {
       address: currentAddress,
@@ -1655,7 +1741,8 @@ export default class VexLib extends EventEmitter {
         "quantity": amount,
         "memo": memo,
         "memo_is_hex": isHex,
-        "source": currentAddress
+        "source": currentAddress,
+        "encoding": "opreturn"
       }).then((response) => {
         if (response.status === 200) {
           if (response.data.error) {
@@ -1734,8 +1821,10 @@ export default class VexLib extends EventEmitter {
 
     if (this.experiments && this._ex_generateTransferEnabled) {
       let doExperiment = async () => {
-        let res = await xcpjsv2.send(currentAddress, csOb.source, csOb.destination, csOb.token, csOb.quantity, csOb.memo)
-        success(txid)
+        console.log('csOb:', csOb)
+        let res = await xcpjsv2.send(csOb.source, csOb.destination, csOb.asset, csOb.quantity, csOb.memo)
+        console.log('RES: ', res)
+        success(res.data.result)
         this.experimentResult({
           type: 'generateTransfer',
           address: currentAddress, csOb, res
@@ -2097,7 +2186,7 @@ export default class VexLib extends EventEmitter {
         {
           field: 'source',
           op: '==',
-          value: this.exchangeAddress
+          value: this.issuanceAddress
         }
       ],
       order_by: 'tx_index',
@@ -2191,12 +2280,39 @@ export default class VexLib extends EventEmitter {
                         this._authed_()
                         this.socket.emit('auth', { address: currentAddress, token: response.data.accessToken, twofa: twofacode })
 
-                        xcpjsv2.services.transactionSigner.registerSigner(currentAddress, async tx => {
-                          let keyPair = getKeyPairFromSessionStorage()
-                          let signedHex = await new Promise((resolve) => buildAndSign(keyPair, tx, resolve))
+                        let device = sessionStorageProxy.getItem('device')
 
-                          return signedHex
-                        })
+                        if ((device === 'userpass') || (device === null)) {
+                          xcpjsv2.services.transactionSigner.registerSigner(currentAddress, async tx => {
+                            let keyPair = getKeyPairFromSessionStorage()
+                            let signedHex = await new Promise((resolve) => buildAndSign(keyPair, tx, resolve))
+
+                            return signedHex
+                          })
+                        } else if (device === 'trezor') {
+                          xcpjsv2.services.transactionSigner.registerSigner(currentAddress, async tx => {
+                            let Trezor = devices[device](0)
+
+                            let signedHex = await new Promise((resolve, reject) => {
+                              console.log('Signer TRZR', tx)
+                                Trezor.signTx(tx.__tx.ins, tx.__tx.outs, (err, tx) => {
+                                if (err) {
+                                  console.log('Trezor ERR:')
+                                  console.log(err)
+                                  console.trace()
+                                  reject(null)
+                                } else {
+                                  console.log('Serialized TX:', tx)
+
+                                  resolve(tx)
+                                }
+                              })
+                            })
+
+                            return signedHex
+                          })
+                        }
+
                         cb(null, response.data)
                       } else {
                         cb('user-not-enabled')
@@ -2426,5 +2542,14 @@ export default class VexLib extends EventEmitter {
   setExperiments(n) {
     localStorageProxy.setItem('experiments', n)
     this.experiments = n === '1'
+
+    axios.defaults.headers.common['test'] = this.experiments?'1':'0'
+  }
+
+  getCurrentStorage() {
+    return {
+      local: localStorageProxy,
+      session: sessionStorageProxy
+    }
   }
 }

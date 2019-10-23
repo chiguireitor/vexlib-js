@@ -95,6 +95,10 @@ var _xcpjsv = require('xcpjsv2');
 
 var _xcpjsv2 = _interopRequireDefault(_xcpjsv);
 
+var _universalCookie = require('universal-cookie');
+
+var _universalCookie2 = _interopRequireDefault(_universalCookie);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, arguments); return new Promise(function (resolve, reject) { function step(key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { return Promise.resolve(value).then(function (value) { step("next", value); }, function (err) { step("throw", err); }); } } return step("next"); }); }; }
@@ -105,10 +109,18 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "398";
+var build = "435";
 
-var localStorageProxy = localStorage || require('localstorage-memory');
-var sessionStorageProxy = sessionStorage || require('localstorage-memory');
+function getStorage(type) {
+  if (typeof window !== 'undefined' && type + 'Storage' in window) {
+    return window[type + 'Storage'];
+  } else {
+    return require('localstorage-memory');
+  }
+}
+
+var localStorageProxy = getStorage('local');
+var sessionStorageProxy = getStorage('session');
 
 var SATOSHIS = exports.SATOSHIS = 100000000;
 
@@ -179,7 +191,14 @@ function softLimit8Decimals(v) {
 }
 
 //var window = window || { location: { hostname: '-' } }
-var baseUrl = window.location.hostname === 'localhost' || (0, _checkIp2.default)(window.location.hostname).isRfc1918 ? 'http://' + window.location.hostname + ':8085' : window.location.origin;
+function getDefaultBaseUrl() {
+  if (typeof window !== 'undefined') {
+    return window.location.hostname === 'localhost' || (0, _checkIp2.default)(window.location.hostname).isRfc1918 ? 'http://' + window.location.hostname + ':8085' : window.location.origin;
+  } else {
+    return '';
+  }
+}
+var baseUrl = getDefaultBaseUrl();
 
 function defaultAxios(ob) {
   if (!ob) {
@@ -253,7 +272,7 @@ function buildAndSign(keyPair, tx, cb) {
 
 function signTransaction(rawHex, cb) {
   var tx = _bitcoinjsLib2.default.Transaction.fromHex(rawHex);
-  var device = sessionStorageProxyProxy.getItem('device');
+  var device = sessionStorageProxy.getItem('device');
   console.log(device);
 
   if (device === 'userpass' || device === null) {
@@ -403,6 +422,10 @@ var VexLib = function (_EventEmitter) {
       //this.vex('')
     };
 
+    _this._socket_newnotifs_ = function (notifs) {
+      _this.emit('new notifs', notifs);
+    };
+
     _this._socket_updates_ = function (updates) {
       _this.emit('updates', updates);
     };
@@ -433,10 +456,15 @@ var VexLib = function (_EventEmitter) {
 
     _this.lang = options.lang || 'EN';
     _this.exchangeAddress = options.exchangeAddress || '';
+    _this.issuanceAddress = options.issuanceAddress || options.exchangeAddress || '';
 
     console.log('VexLib init', _this.lang, _this.exchangeAddress, build);
-
-    _this.axios = defaultAxios();
+    _this.experiments = localStorageProxy.getItem('experiments') === '1';
+    _this.axios = defaultAxios({
+      headers: {
+        test: _this.experiments ? '1' : '0'
+      }
+    });
 
     _this.lastVexSeq = 0;
     _this.cbList = {};
@@ -445,7 +473,9 @@ var VexLib = function (_EventEmitter) {
       VEST: 100
     };
 
-    _this.experiments = localStorageProxy.getItem('experiments') === '1';
+    if (_this.experiments) {
+      _axios2.default.defaults.headers.common['test'] = _this.experiments ? '1' : '0';
+    }
 
     _this._is_connected_ = false;
     _this._is_authed_ = false;
@@ -459,6 +489,7 @@ var VexLib = function (_EventEmitter) {
         console.log('Config loaded', response.data);
 
         _this.exchangeAddress = response.data.exchangeAddress;
+        _this.issuanceAddress = response.data.issuanceAddress || response.data.exchangeAddress;
         _this.proxyAgent = response.data.proxyAgent || '';
         _this.maintenance = response.data.maintenance || '';
         _this.unspendableAddress = 'mvCounterpartyXXXXXXXXXXXXXXW24Hef';
@@ -470,6 +501,7 @@ var VexLib = function (_EventEmitter) {
             console.log('Config loaded', response.data);
 
             _this.exchangeAddress = response.data.exchangeAddress;
+            _this.issuanceAddress = response.data.issuanceAddress || response.data.exchangeAddress;
             _this.proxyAgent = response.data.proxyAgent || '';
             _this.maintenance = response.data.maintenance || '';
             _this.unspendableAddress = 'mvCounterpartyXXXXXXXXXXXXXXW24Hef';
@@ -523,6 +555,39 @@ var VexLib = function (_EventEmitter) {
   }
 
   _createClass(VexLib, [{
+    key: 'addrTxs',
+    value: function () {
+      var _ref3 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3(addr) {
+        return regeneratorRuntime.wrap(function _callee3$(_context3) {
+          while (1) {
+            switch (_context3.prev = _context3.next) {
+              case 0:
+                _context3.next = 2;
+                return _axios2.default.get(baseUrl + '/index/a/' + addr + '/txs');
+
+              case 2:
+                return _context3.abrupt('return', _context3.sent.data);
+
+              case 3:
+              case 'end':
+                return _context3.stop();
+            }
+          }
+        }, _callee3, this);
+      }));
+
+      function addrTxs(_x2) {
+        return _ref3.apply(this, arguments);
+      }
+
+      return addrTxs;
+    }()
+  }, {
+    key: 'parseRawTransaction',
+    value: function parseRawTransaction(rawhex) {
+      return _bitcoinjsLib2.default.Transaction.fromHex(rawhex);
+    }
+  }, {
     key: 'tokenDivisor',
     value: function tokenDivisor(tkn) {
       if (tkn in this.fiatTokensDivisor) {
@@ -541,6 +606,7 @@ var VexLib = function (_EventEmitter) {
       this.socket.on('connect', this._socket_connect_);
       this.socket.on('new block', this._socket_newblock_);
       this.socket.on('new dbupdate', this._socket_newdbupdate_);
+      this.socket.on('new notifs', this._socket_newnotifs_);
       this.socket.on('updates', this._socket_updates_);
       this.socket.on('close', this._socket_close_);
       this.socket.on('error', function (err) {
@@ -641,6 +707,21 @@ var VexLib = function (_EventEmitter) {
       this._api_('db', method, params, cb, noAuthNeeded);
     }
   }, {
+    key: 'dbAsync',
+    value: function dbAsync(method, params) {
+      var _this6 = this;
+
+      return new Promise(function (resolve, reject) {
+        _this6._api_('db', method, params, function (err, data) {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(data);
+          }
+        });
+      });
+    }
+  }, {
     key: 'ldb',
     value: function ldb(method, params, cb) {
       this._api_('ldb', method, params, cb);
@@ -649,6 +730,21 @@ var VexLib = function (_EventEmitter) {
     key: 'mdb',
     value: function mdb(method, params, cb) {
       this._api_('mdb', method, params, cb);
+    }
+  }, {
+    key: 'mdbAsync',
+    value: function mdbAsync(method, params) {
+      var _this7 = this;
+
+      return new Promise(function (resolve, reject) {
+        _this7._api_('mdb', method, params, function (err, data) {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(data);
+          }
+        });
+      });
     }
   }, {
     key: 'index',
@@ -678,10 +774,10 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'signAndBroadcastTransaction',
     value: function signAndBroadcastTransaction(rawtx, cb) {
-      var _this6 = this;
+      var _this8 = this;
 
       signTransaction(rawtx, function (signed) {
-        _this6.axios.post('/vexapi/sendtx', {
+        _this8.axios.post('/vexapi/sendtx', {
           rawtx: signed
         }).then(function (response) {
           cb(null, response.data.result);
@@ -693,7 +789,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getBalances',
     value: function getBalances(cb) {
-      var _this7 = this;
+      var _this9 = this;
 
       var currentAddress = sessionStorageProxy.getItem('currentAddress');
 
@@ -725,8 +821,8 @@ var VexLib = function (_EventEmitter) {
 
           for (var asset in balances) {
             var divisor = SATOSHIS;
-            if (asset in _this7.fiatTokensDivisor) {
-              divisor = _this7.fiatTokensDivisor[asset];
+            if (asset in _this9.fiatTokensDivisor) {
+              divisor = _this9.fiatTokensDivisor[asset];
             }
             balances[asset] = balances[asset].dividedBy(divisor).toNumber();
           }
@@ -753,6 +849,31 @@ var VexLib = function (_EventEmitter) {
           cb(null, data.length > 0)
         }
       })*/
+
+      cb(null, true);
+      // Deprecated the UTXOs thing
+      /*this.vex('get_unspent_txouts', {
+        address: currentAddress,
+        unconfirmed: true
+      }, (err, data) => {
+        //console.log('Got from utxo', err, data)
+        if (err) {
+          cb(err)
+        } else {
+          cb(null, data.result && data.result.length > 0)
+        }
+      }, true)*/
+    }
+  }, {
+    key: 'hasUtxos',
+    value: function hasUtxos(cb) {
+      var currentAddress = sessionStorageProxy.getItem('currentAddress');
+
+      if (!currentAddress) {
+        cb('login-first');
+        this.emit('need-login');
+        return;
+      }
 
       this.vex('get_unspent_txouts', {
         address: currentAddress,
@@ -809,14 +930,14 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getOrderBook_old',
     value: function getOrderBook_old(give, get, isBid, cb) {
-      var _this8 = this;
+      var _this10 = this;
 
       var proxyGive = give.slice(0, -1);
       var proxyGet = get.slice(0, -1);
       if (!isBid) {
-        var _ref3 = [proxyGet, proxyGive];
-        proxyGive = _ref3[0];
-        proxyGet = _ref3[1];
+        var _ref4 = [proxyGet, proxyGive];
+        proxyGive = _ref4[0];
+        proxyGet = _ref4[1];
       }
 
       var pair = proxyGive + '/' + proxyGet;
@@ -850,11 +971,11 @@ var VexLib = function (_EventEmitter) {
           var sumGive = 0;
           var sumGet = 0;
 
-          var giveIsFiat = give in _this8.fiatTokensDivisor;
-          var getIsFiat = get in _this8.fiatTokensDivisor;
+          var giveIsFiat = give in _this10.fiatTokensDivisor;
+          var getIsFiat = get in _this10.fiatTokensDivisor;
 
-          var giveDivisor = giveIsFiat ? _this8.fiatTokensDivisor[give] : SATOSHIS;
-          var getDivisor = getIsFiat ? _this8.fiatTokensDivisor[get] : SATOSHIS;
+          var giveDivisor = giveIsFiat ? _this10.fiatTokensDivisor[give] : SATOSHIS;
+          var getDivisor = getIsFiat ? _this10.fiatTokensDivisor[get] : SATOSHIS;
 
           var properComparePrice = function properComparePrice(a, b) {
             if (giveIsFiat || getIsFiat) {
@@ -929,22 +1050,22 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getBlockTimesAsync',
     value: function () {
-      var _ref4 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee4(data) {
-        var _this9 = this;
+      var _ref5 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee5(data) {
+        var _this11 = this;
 
         var getbtime, i, bt;
-        return regeneratorRuntime.wrap(function _callee4$(_context4) {
+        return regeneratorRuntime.wrap(function _callee5$(_context5) {
           while (1) {
-            switch (_context4.prev = _context4.next) {
+            switch (_context5.prev = _context5.next) {
               case 0:
                 getbtime = function () {
-                  var _ref5 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3(height) {
-                    return regeneratorRuntime.wrap(function _callee3$(_context3) {
+                  var _ref6 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee4(height) {
+                    return regeneratorRuntime.wrap(function _callee4$(_context4) {
                       while (1) {
-                        switch (_context3.prev = _context3.next) {
+                        switch (_context4.prev = _context4.next) {
                           case 0:
-                            return _context3.abrupt('return', new Promise(function (resolve, reject) {
-                              _this9.indexer('blocktime', { height: height }, function (err, data) {
+                            return _context4.abrupt('return', new Promise(function (resolve, reject) {
+                              _this11.indexer('blocktime', { height: height }, function (err, data) {
                                 if (err) {
                                   reject(err);
                                 } else {
@@ -955,14 +1076,14 @@ var VexLib = function (_EventEmitter) {
 
                           case 1:
                           case 'end':
-                            return _context3.stop();
+                            return _context4.stop();
                         }
                       }
-                    }, _callee3, _this9);
+                    }, _callee4, _this11);
                   }));
 
-                  return function getbtime(_x3) {
-                    return _ref5.apply(this, arguments);
+                  return function getbtime(_x4) {
+                    return _ref6.apply(this, arguments);
                   };
                 }();
 
@@ -970,36 +1091,36 @@ var VexLib = function (_EventEmitter) {
 
               case 2:
                 if (!(i < data.length)) {
-                  _context4.next = 10;
+                  _context5.next = 10;
                   break;
                 }
 
-                _context4.next = 5;
+                _context5.next = 5;
                 return getbtime(data[i].block);
 
               case 5:
-                bt = _context4.sent;
+                bt = _context5.sent;
 
                 data[i].time = bt.time;
 
               case 7:
                 i++;
-                _context4.next = 2;
+                _context5.next = 2;
                 break;
 
               case 10:
-                return _context4.abrupt('return', data);
+                return _context5.abrupt('return', data);
 
               case 11:
               case 'end':
-                return _context4.stop();
+                return _context5.stop();
             }
           }
-        }, _callee4, this);
+        }, _callee5, this);
       }));
 
-      function getBlockTimesAsync(_x2) {
-        return _ref4.apply(this, arguments);
+      function getBlockTimesAsync(_x3) {
+        return _ref5.apply(this, arguments);
       }
 
       return getBlockTimesAsync;
@@ -1007,23 +1128,23 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getBlockTimesAsync_old',
     value: function () {
-      var _ref6 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee5(data) {
-        var _this10 = this;
+      var _ref7 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee6(data) {
+        var _this12 = this;
 
         var mapping, bindices, getBtime, btimes;
-        return regeneratorRuntime.wrap(function _callee5$(_context5) {
+        return regeneratorRuntime.wrap(function _callee6$(_context6) {
           while (1) {
-            switch (_context5.prev = _context5.next) {
+            switch (_context6.prev = _context6.next) {
               case 0:
                 mapping = {};
-                _context5.prev = 1;
+                _context6.prev = 1;
                 bindices = data.map(function (x) {
                   return x.block;
                 });
 
                 getBtime = function getBtime(block) {
                   return new Promise(function (resolve, reject) {
-                    _this10.indexer('blocktime', { height: block }, function (err, data) {
+                    _this12.indexer('blocktime', { height: block }, function (err, data) {
                       if (err) {
                         reject(err);
                       } else {
@@ -1033,41 +1154,41 @@ var VexLib = function (_EventEmitter) {
                   });
                 };
 
-                _context5.next = 6;
+                _context6.next = 6;
                 return Promise.all(bindices.map(getBtime));
 
               case 6:
-                btimes = _context5.sent;
+                btimes = _context6.sent;
 
 
                 btimes.forEach(function (x) {
                   mapping[x.height] = Math.round(x.time / 1000);
                 });
-                _context5.next = 14;
+                _context6.next = 14;
                 break;
 
               case 10:
-                _context5.prev = 10;
-                _context5.t0 = _context5['catch'](1);
+                _context6.prev = 10;
+                _context6.t0 = _context6['catch'](1);
 
-                console.log('getBlockTimes exception', _context5.t0);
-                throw _context5.t0;
+                console.log('getBlockTimes exception', _context6.t0);
+                throw _context6.t0;
 
               case 14:
-                return _context5.abrupt('return', data.map(function (x) {
+                return _context6.abrupt('return', data.map(function (x) {
                   return _extends({ time: mapping[x.block] * 1000 }, x);
                 }));
 
               case 15:
               case 'end':
-                return _context5.stop();
+                return _context6.stop();
             }
           }
-        }, _callee5, this, [[1, 10]]);
+        }, _callee6, this, [[1, 10]]);
       }));
 
-      function getBlockTimesAsync_old(_x4) {
-        return _ref6.apply(this, arguments);
+      function getBlockTimesAsync_old(_x5) {
+        return _ref7.apply(this, arguments);
       }
 
       return getBlockTimesAsync_old;
@@ -1110,7 +1231,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: '_recentOrders_',
     value: function _recentOrders_(give, get, filters, cb) {
-      var _this11 = this;
+      var _this13 = this;
 
       var proxyGive = give.slice(0, -1);
       var proxyGet = get.slice(0, -1);
@@ -1140,7 +1261,7 @@ var VexLib = function (_EventEmitter) {
         if (err) {
           cb(err);
         } else {
-          _this11.vex('get_orders', {
+          _this13.vex('get_orders', {
             filters: askFilters,
             order_by: 'block_index',
             order_dir: 'DESC',
@@ -1215,8 +1336,8 @@ var VexLib = function (_EventEmitter) {
             hash: itm.tx_hash
           }*/
 
-          var giveDivisor = itm.give_asset in _this11.fiatTokensDivisor ? _this11.fiatTokensDivisor[itm.give_asset] : SATOSHIS;
-          var getDivisor = itm.get_asset in _this11.fiatTokensDivisor ? _this11.fiatTokensDivisor[itm.get_asset] : SATOSHIS;
+          var giveDivisor = itm.give_asset in _this13.fiatTokensDivisor ? _this13.fiatTokensDivisor[itm.give_asset] : SATOSHIS;
+          var getDivisor = itm.get_asset in _this13.fiatTokensDivisor ? _this13.fiatTokensDivisor[itm.get_asset] : SATOSHIS;
           var type = itm.give_asset === get && itm.get_asset === give ? 'buy' : 'sell';
 
           var giveq = new _bignumber2.default(itm.give_quantity).minus(itm.give_remaining).dividedBy(giveDivisor);
@@ -1251,7 +1372,7 @@ var VexLib = function (_EventEmitter) {
             return arr
             }, [])*/
 
-        _this11.getBlockTimes(orders, function (data) {
+        _this13.getBlockTimes(orders, function (data) {
 
           cb(null, data);
         });
@@ -1326,7 +1447,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getUser',
     value: function getUser(email, password, cb) {
-      var _this12 = this;
+      var _this14 = this;
 
       var itemKey = '_user_data_' + email + '_';
       var userData = localStorageProxy.getItem(itemKey);
@@ -1335,9 +1456,9 @@ var VexLib = function (_EventEmitter) {
         cb(msg || 'no-user-found', data);
       };
 
-      var success = function success(_ref7) {
-        var address = _ref7.address,
-            mnemonic = _ref7.mnemonic;
+      var success = function success(_ref8) {
+        var address = _ref8.address,
+            mnemonic = _ref8.mnemonic;
 
         sessionStorageProxy.setItem('currentAddress', address);
         sessionStorageProxy.setItem('currentMnemonic', fixAccents(mnemonic));
@@ -1368,7 +1489,7 @@ var VexLib = function (_EventEmitter) {
       var tryLogin = function tryLogin() {
         if (userData === null) {
           var husr = _hash2.default.sha256().update(email).digest('hex');
-          _this12.axios.get('/vexapi/user/' + husr).then(function (response) {
+          _this14.axios.get('/vexapi/user/' + husr).then(function (response) {
             if (response.status === 200) {
               decrypt(response.data.cryptdata, function (err, data) {
                 if (err) {
@@ -1403,7 +1524,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'sendRegisterPkg',
     value: function sendRegisterPkg(userAddress, pkg, cb) {
-      var _this13 = this;
+      var _this15 = this;
 
       var fail = function fail(err) {
         cb(err || 'bad-user-data');
@@ -1425,7 +1546,7 @@ var VexLib = function (_EventEmitter) {
 
           //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
           delete pkg['files'];
-          _this13.axios.post('/vexapi/userdocs/' + userAddress, {
+          _this15.axios.post('/vexapi/userdocs/' + userAddress, {
             data: encryptedHex,
             extraData: pkg
           }).then(function (data) {
@@ -1443,13 +1564,13 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'replaceLocalUser',
     value: function replaceLocalUser(email, password, mnemonic, uiLang, cb) {
-      var _this14 = this;
+      var _this16 = this;
 
       var husr = _hash2.default.sha256().update(email).digest('hex');
       var tries = 2;
 
       var tryReplace = function tryReplace() {
-        _this14.axios.get('/vexapi/user/' + husr).then(function (response) {
+        _this16.axios.get('/vexapi/user/' + husr).then(function (response) {
           var postChallenge = function postChallenge(sigResult) {
             if (!sigResult) {
               console.log('cant sign', sigResult);
@@ -1457,7 +1578,7 @@ var VexLib = function (_EventEmitter) {
             } else {
               sessionStorageProxy.setItem('currentMnemonic', fixAccents(mnemonic));
               // TODO: Obtener el usuario guardado en el servidor para tener el challenge y firmarlo
-              _this14.createUser(email, password, uiLang, sigResult, function (err, data) {
+              _this16.createUser(email, password, uiLang, sigResult, function (err, data) {
                 if (err && err === 'bad-signature' && tries > 0) {
                   tries--;
                   setImmediate(tryReplace);
@@ -1503,7 +1624,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'createUser',
     value: function createUser(email, password, uiLang, signature, cb) {
-      var _this15 = this;
+      var _this17 = this;
 
       var externalToken = null;
 
@@ -1546,7 +1667,7 @@ var VexLib = function (_EventEmitter) {
           }
         };
 
-        _this15.axios.post('/vexapi/user', {
+        _this17.axios.post('/vexapi/user', {
           userid: husr,
           email: email,
           cryptdata: encryptedHex,
@@ -1631,7 +1752,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'createOrder',
     value: function createOrder(giveAsset, giveAmount, getAsset, getAmount, cb) {
-      var _this16 = this;
+      var _this18 = this;
 
       var currentAddress = sessionStorageProxy.getItem('currentAddress');
 
@@ -1653,7 +1774,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this16.emit('need-login');
+          _this18.emit('need-login');
         }
 
         cb(err || 'error-creating-order');
@@ -1665,34 +1786,34 @@ var VexLib = function (_EventEmitter) {
 
       if (this.experiments && this._ex_createOrderEnabled) {
         var doExperiment = function () {
-          var _ref8 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee6() {
+          var _ref9 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee7() {
             var res;
-            return regeneratorRuntime.wrap(function _callee6$(_context6) {
+            return regeneratorRuntime.wrap(function _callee7$(_context7) {
               while (1) {
-                switch (_context6.prev = _context6.next) {
+                switch (_context7.prev = _context7.next) {
                   case 0:
-                    _context6.next = 2;
+                    _context7.next = 2;
                     return _xcpjsv2.default.order(currentAddress, giveAsset, giveAmount, getAsset, getAmount);
 
                   case 2:
-                    res = _context6.sent;
+                    res = _context7.sent;
 
                     success(res);
-                    _this16.experimentResult({
+                    _this18.experimentResult({
                       type: 'createOrder',
                       address: currentAddress, giveAsset: giveAsset, giveAmount: giveAmount, getAsset: getAsset, getAmount: getAmount, res: res
                     });
 
                   case 5:
                   case 'end':
-                    return _context6.stop();
+                    return _context7.stop();
                 }
               }
-            }, _callee6, _this16);
+            }, _callee7, _this18);
           }));
 
           return function doExperiment() {
-            return _ref8.apply(this, arguments);
+            return _ref9.apply(this, arguments);
           };
         }();
 
@@ -1707,7 +1828,7 @@ var VexLib = function (_EventEmitter) {
         }).then(function (response) {
           if (response.status === 200) {
             signTransaction(response.data.result, function (signed) {
-              _this16.axios.post('/vexapi/sendtx', {
+              _this18.axios.post('/vexapi/sendtx', {
                 rawtx: signed
               }).then(function (response) {
                 success(response.data.result);
@@ -1724,7 +1845,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'cancelOrder',
     value: function cancelOrder(txid, cb) {
-      var _this17 = this;
+      var _this19 = this;
 
       var currentAddress = sessionStorageProxy.getItem('currentAddress');
 
@@ -1737,7 +1858,7 @@ var VexLib = function (_EventEmitter) {
       var fail = function fail(err) {
 
         if (err.response && err.response.status === 401) {
-          _this17.emit('need-login');
+          _this19.emit('need-login');
         }
 
         cb('error-creating-cancel');
@@ -1754,7 +1875,7 @@ var VexLib = function (_EventEmitter) {
       }).then(function (response) {
         if (response.status === 200) {
           signTransaction(response.data.result, function (signed) {
-            _this17.axios.post('/vexapi/sendtx', {
+            _this19.axios.post('/vexapi/sendtx', {
               rawtx: signed
             }).then(function (resp) {
               if (resp.data.error) {
@@ -1775,7 +1896,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'reportFiatDeposit',
     value: function reportFiatDeposit(getToken, getAmount, depositId, bankName, files, cb) {
-      var _this18 = this;
+      var _this20 = this;
 
       var currentAddress = sessionStorageProxy.getItem('currentAddress');
 
@@ -1788,7 +1909,7 @@ var VexLib = function (_EventEmitter) {
       var fail = function fail(err) {
 
         if (err.response && err.response.status === 401) {
-          _this18.emit('need-login');
+          _this20.emit('need-login');
         }
 
         console.log(err);
@@ -1801,7 +1922,7 @@ var VexLib = function (_EventEmitter) {
       };
 
       var uploadData = function uploadData(txid) {
-        _this18.axios.get('/vexapi/sesskey/' + currentAddress).then(function (response) {
+        _this20.axios.get('/vexapi/sesskey/' + currentAddress).then(function (response) {
           if (response.status === 200) {
             var key = Buffer.from(response.data.key, 'hex');
             var aesCtr = new _aesJs2.default.ModeOfOperation.ctr(key, new _aesJs2.default.Counter(5));
@@ -1812,7 +1933,7 @@ var VexLib = function (_EventEmitter) {
             var encryptedHex = Buffer.from(intermediaryHex, 'hex').toString('base64');
 
             //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
-            _this18.axios.post('/vexapi/deprep/' + currentAddress, {
+            _this20.axios.post('/vexapi/deprep/' + currentAddress, {
               data: encryptedHex,
               txid: txid
             }).then(function (data) {
@@ -1830,36 +1951,36 @@ var VexLib = function (_EventEmitter) {
 
       if (this.experiments && this._ex_createFiatDepositEnabled) {
         var doExperiment = function () {
-          var _ref9 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee7() {
+          var _ref10 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee8() {
             var res;
-            return regeneratorRuntime.wrap(function _callee7$(_context7) {
+            return regeneratorRuntime.wrap(function _callee8$(_context8) {
               while (1) {
-                switch (_context7.prev = _context7.next) {
+                switch (_context8.prev = _context8.next) {
                   case 0:
-                    _context7.next = 2;
+                    _context8.next = 2;
                     return _xcpjsv2.default.broadcast(currentAddress, Math.floor(Date.now() / 1000), 0, null, getToken + ':' + getAmount + ':' + depositId + ':' + bankName);
 
                   case 2:
-                    res = _context7.sent;
+                    res = _context8.sent;
 
                     console.log('DEP:', res);
                     uploadData(res.data.result);
 
-                    _this18.experimentResult({
+                    _this20.experimentResult({
                       type: 'createFiatDeposit',
                       address: currentAddress, memo: getToken + ':' + getAmount + ':' + depositId + ':' + bankName, res: res
                     });
 
                   case 6:
                   case 'end':
-                    return _context7.stop();
+                    return _context8.stop();
                 }
               }
-            }, _callee7, _this18);
+            }, _callee8, _this20);
           }));
 
           return function doExperiment() {
-            return _ref9.apply(this, arguments);
+            return _ref10.apply(this, arguments);
           };
         }();
 
@@ -1871,7 +1992,7 @@ var VexLib = function (_EventEmitter) {
         }).then(function (response) {
           if (response.status === 200) {
             signTransaction(response.data.result, function (signed) {
-              return _this18.axios.post('/vexapi/sendtx', {
+              return _this20.axios.post('/vexapi/sendtx', {
                 rawtx: signed
               }).then(function (response) {
                 var txid = response.data.result;
@@ -1890,7 +2011,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateWithdrawal',
     value: function generateWithdrawal(token, amount, address, info, cb) {
-      var _this19 = this;
+      var _this21 = this;
 
       var currentAddress = sessionStorageProxy.getItem('currentAddress');
 
@@ -1902,7 +2023,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this19.emit('need-login');
+          _this21.emit('need-login');
         }
 
         cb(err || 'error-generating-withdrawal');
@@ -1987,35 +2108,35 @@ var VexLib = function (_EventEmitter) {
 
       if (this.experiments && this._ex_generateWithdrawalEnabled) {
         var doExperiment = function () {
-          var _ref10 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee8() {
+          var _ref11 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee9() {
             var res;
-            return regeneratorRuntime.wrap(function _callee8$(_context8) {
+            return regeneratorRuntime.wrap(function _callee9$(_context9) {
               while (1) {
-                switch (_context8.prev = _context8.next) {
+                switch (_context9.prev = _context9.next) {
                   case 0:
-                    _context8.next = 2;
-                    return _xcpjsv2.default.send(currentAddress, _this19.unspendableAddress, token, amount, memo, isHex);
+                    _context9.next = 2;
+                    return _xcpjsv2.default.send(currentAddress, _this21.unspendableAddress, token, amount, memo, isHex);
 
                   case 2:
-                    res = _context8.sent;
+                    res = _context9.sent;
 
                     success(res);
 
-                    _this19.experimentResult({
+                    _this21.experimentResult({
                       type: 'generateWithdrawal',
                       address: currentAddress, token: token, amount: amount, memo: memo, isHex: isHex, res: res
                     });
 
                   case 5:
                   case 'end':
-                    return _context8.stop();
+                    return _context9.stop();
                 }
               }
-            }, _callee8, _this19);
+            }, _callee9, _this21);
           }));
 
           return function doExperiment() {
-            return _ref10.apply(this, arguments);
+            return _ref11.apply(this, arguments);
           };
         }();
 
@@ -2026,7 +2147,8 @@ var VexLib = function (_EventEmitter) {
           "quantity": amount,
           "memo": memo,
           "memo_is_hex": isHex,
-          "source": currentAddress
+          "source": currentAddress,
+          "encoding": "opreturn"
         }).then(function (response) {
           if (response.status === 200) {
             if (response.data.error) {
@@ -2035,7 +2157,7 @@ var VexLib = function (_EventEmitter) {
               fail(response.error);
             } else {
               signTransaction(response.data.result, function (signed) {
-                _this19.axios.post('/vexapi/sendtx', {
+                _this21.axios.post('/vexapi/sendtx', {
                   rawtx: signed
                 }).then(function (response) {
                   success(response.data.result);
@@ -2053,7 +2175,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateTransfer',
     value: function generateTransfer(token, amount, destination, memo, twofa, cb) {
-      var _this20 = this;
+      var _this22 = this;
 
       if (!cb && twofa && typeof twofa === 'function') {
         cb = twofa;
@@ -2069,7 +2191,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this20.emit('need-login');
+          _this22.emit('need-login');
         }
 
         cb(err || 'error-generating-transfer');
@@ -2107,34 +2229,36 @@ var VexLib = function (_EventEmitter) {
 
       if (this.experiments && this._ex_generateTransferEnabled) {
         var doExperiment = function () {
-          var _ref11 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee9() {
+          var _ref12 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee10() {
             var res;
-            return regeneratorRuntime.wrap(function _callee9$(_context9) {
+            return regeneratorRuntime.wrap(function _callee10$(_context10) {
               while (1) {
-                switch (_context9.prev = _context9.next) {
+                switch (_context10.prev = _context10.next) {
                   case 0:
-                    _context9.next = 2;
-                    return _xcpjsv2.default.send(currentAddress, csOb.source, csOb.destination, csOb.token, csOb.quantity, csOb.memo);
+                    console.log('csOb:', csOb);
+                    _context10.next = 3;
+                    return _xcpjsv2.default.send(csOb.source, csOb.destination, csOb.asset, csOb.quantity, csOb.memo);
 
-                  case 2:
-                    res = _context9.sent;
+                  case 3:
+                    res = _context10.sent;
 
-                    success(txid);
-                    _this20.experimentResult({
+                    console.log('RES: ', res);
+                    success(res.data.result);
+                    _this22.experimentResult({
                       type: 'generateTransfer',
                       address: currentAddress, csOb: csOb, res: res
                     });
 
-                  case 5:
+                  case 7:
                   case 'end':
-                    return _context9.stop();
+                    return _context10.stop();
                 }
               }
-            }, _callee9, _this20);
+            }, _callee10, _this22);
           }));
 
           return function doExperiment() {
-            return _ref11.apply(this, arguments);
+            return _ref12.apply(this, arguments);
           };
         }();
 
@@ -2149,7 +2273,7 @@ var VexLib = function (_EventEmitter) {
             fail(data.error);
           } else {
             signTransaction(data.result, function (signed) {
-              _this20.axios.post('/vexapi/sendtx', {
+              _this22.axios.post('/vexapi/sendtx', {
                 rawtx: signed
               }).then(function (response) {
                 success(response.data.result);
@@ -2354,7 +2478,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getDeposits',
     value: function getDeposits(addr, cb) {
-      var _this21 = this;
+      var _this23 = this;
 
       if (!cb && typeof addr === 'function') {
         cb = addr;
@@ -2372,7 +2496,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this21.emit('need-login');
+          _this23.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -2395,7 +2519,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateTokenDepositAddress',
     value: function generateTokenDepositAddress(token, cb) {
-      var _this22 = this;
+      var _this24 = this;
 
       var currentAddress = sessionStorageProxy.getItem('currentAddress');
 
@@ -2408,7 +2532,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this22.emit('need-login');
+          _this24.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -2420,34 +2544,34 @@ var VexLib = function (_EventEmitter) {
 
       if (this.experiments && this._ex_generateDepositAddressEnabled) {
         var doExperiment = function () {
-          var _ref12 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee10() {
+          var _ref13 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee11() {
             var res;
-            return regeneratorRuntime.wrap(function _callee10$(_context10) {
+            return regeneratorRuntime.wrap(function _callee11$(_context11) {
               while (1) {
-                switch (_context10.prev = _context10.next) {
+                switch (_context11.prev = _context11.next) {
                   case 0:
-                    _context10.next = 2;
+                    _context11.next = 2;
                     return _xcpjsv2.default.broadcast(currentAddress, Math.floor(Date.now() / 1000), 0, null, 'GENADDR:' + token);
 
                   case 2:
-                    res = _context10.sent;
+                    res = _context11.sent;
 
                     success(res);
-                    _this22.experimentResult({
+                    _this24.experimentResult({
                       type: 'generateDepositAddress',
                       address: currentAddress, token: token, res: res
                     });
 
                   case 5:
                   case 'end':
-                    return _context10.stop();
+                    return _context11.stop();
                 }
               }
-            }, _callee10, _this22);
+            }, _callee11, _this24);
           }));
 
           return function doExperiment() {
-            return _ref12.apply(this, arguments);
+            return _ref13.apply(this, arguments);
           };
         }();
 
@@ -2466,7 +2590,7 @@ var VexLib = function (_EventEmitter) {
             fail(err);
           } else {
             signTransaction(data.result, function (signedTransaction) {
-              _this22.axios.post('/vexapi/sendtx', {
+              _this24.axios.post('/vexapi/sendtx', {
                 rawtx: signedTransaction
               }).then(function (response) {
                 success(response.data.result);
@@ -2481,7 +2605,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getTokenDepositAddress',
     value: function getTokenDepositAddress(token, cb) {
-      var _this23 = this;
+      var _this25 = this;
 
       var currentAddress = sessionStorageProxy.getItem('currentAddress');
 
@@ -2494,7 +2618,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this23.emit('need-login');
+          _this25.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -2512,7 +2636,7 @@ var VexLib = function (_EventEmitter) {
         }, {
           field: 'source',
           op: '==',
-          value: this.exchangeAddress
+          value: this.issuanceAddress
         }],
         order_by: 'tx_index',
         order_dir: 'DESC',
@@ -2559,7 +2683,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'localLogin',
     value: function localLogin(ops, cb) {
-      var _this24 = this;
+      var _this26 = this;
 
       var externalToken = null;
       var twofacode = null;
@@ -2578,7 +2702,7 @@ var VexLib = function (_EventEmitter) {
 
       var sign = function sign(currentAddress) {
         sessionStorageProxy.setItem('currentAddress', currentAddress);
-        _this24.getChallenge(function (err, challenge) {
+        _this26.getChallenge(function (err, challenge) {
           if (err) {
             console.log('Error getting challenge');
             cb(err);
@@ -2589,10 +2713,10 @@ var VexLib = function (_EventEmitter) {
                 cb('couldnt-sign');
               } else {
                 console.log('signature ready, posting');
-                _this24.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
+                _this26.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
                   console.log('Got response from sig', response);
                   if (response.data.success) {
-                    _this24.axios = defaultAxios({ headers: {
+                    _this26.axios = defaultAxios({ headers: {
                         'addr': currentAddress,
                         'token': response.data.accessToken
                       } });
@@ -2601,43 +2725,90 @@ var VexLib = function (_EventEmitter) {
                       this.emit('needauth')
                     }*/
 
-                    _this24.userEnabled(function (err, isEnabled) {
+                    _this26.userEnabled(function (err, isEnabled) {
                       if (err) {
                         cb(err);
                       } else {
                         if (isEnabled) {
-                          _this24._authed_();
-                          _this24.socket.emit('auth', { address: currentAddress, token: response.data.accessToken, twofa: twofacode });
+                          _this26._authed_();
+                          _this26.socket.emit('auth', { address: currentAddress, token: response.data.accessToken, twofa: twofacode });
 
-                          _xcpjsv2.default.services.transactionSigner.registerSigner(currentAddress, function () {
-                            var _ref13 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee11(tx) {
-                              var keyPair, signedHex;
-                              return regeneratorRuntime.wrap(function _callee11$(_context11) {
-                                while (1) {
-                                  switch (_context11.prev = _context11.next) {
-                                    case 0:
-                                      keyPair = getKeyPairFromSessionStorage();
-                                      _context11.next = 3;
-                                      return new Promise(function (resolve) {
-                                        return buildAndSign(keyPair, tx, resolve);
-                                      });
+                          var device = sessionStorageProxy.getItem('device');
 
-                                    case 3:
-                                      signedHex = _context11.sent;
-                                      return _context11.abrupt('return', signedHex);
+                          if (device === 'userpass' || device === null) {
+                            _xcpjsv2.default.services.transactionSigner.registerSigner(currentAddress, function () {
+                              var _ref14 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee12(tx) {
+                                var keyPair, signedHex;
+                                return regeneratorRuntime.wrap(function _callee12$(_context12) {
+                                  while (1) {
+                                    switch (_context12.prev = _context12.next) {
+                                      case 0:
+                                        keyPair = getKeyPairFromSessionStorage();
+                                        _context12.next = 3;
+                                        return new Promise(function (resolve) {
+                                          return buildAndSign(keyPair, tx, resolve);
+                                        });
 
-                                    case 5:
-                                    case 'end':
-                                      return _context11.stop();
+                                      case 3:
+                                        signedHex = _context12.sent;
+                                        return _context12.abrupt('return', signedHex);
+
+                                      case 5:
+                                      case 'end':
+                                        return _context12.stop();
+                                    }
                                   }
-                                }
-                              }, _callee11, _this24);
-                            }));
+                                }, _callee12, _this26);
+                              }));
 
-                            return function (_x5) {
-                              return _ref13.apply(this, arguments);
-                            };
-                          }());
+                              return function (_x6) {
+                                return _ref14.apply(this, arguments);
+                              };
+                            }());
+                          } else if (device === 'trezor') {
+                            _xcpjsv2.default.services.transactionSigner.registerSigner(currentAddress, function () {
+                              var _ref15 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee13(tx) {
+                                var Trezor, signedHex;
+                                return regeneratorRuntime.wrap(function _callee13$(_context13) {
+                                  while (1) {
+                                    switch (_context13.prev = _context13.next) {
+                                      case 0:
+                                        Trezor = devices[device](0);
+                                        _context13.next = 3;
+                                        return new Promise(function (resolve, reject) {
+                                          console.log('Signer TRZR', tx);
+                                          Trezor.signTx(tx.__tx.ins, tx.__tx.outs, function (err, tx) {
+                                            if (err) {
+                                              console.log('Trezor ERR:');
+                                              console.log(err);
+                                              console.trace();
+                                              reject(null);
+                                            } else {
+                                              console.log('Serialized TX:', tx);
+
+                                              resolve(tx);
+                                            }
+                                          });
+                                        });
+
+                                      case 3:
+                                        signedHex = _context13.sent;
+                                        return _context13.abrupt('return', signedHex);
+
+                                      case 5:
+                                      case 'end':
+                                        return _context13.stop();
+                                    }
+                                  }
+                                }, _callee13, _this26);
+                              }));
+
+                              return function (_x7) {
+                                return _ref15.apply(this, arguments);
+                              };
+                            }());
+                          }
+
                           cb(null, response.data);
                         } else {
                           cb('user-not-enabled');
@@ -2679,7 +2850,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'remoteLogin',
     value: function remoteLogin(email, password, externalToken, cb) {
-      var _this25 = this;
+      var _this27 = this;
 
       var ob = {};
       if (typeof cb === "undefined") {
@@ -2702,14 +2873,14 @@ var VexLib = function (_EventEmitter) {
           if (err) {
             if (err === 'bad-data-or-bad-password') {
               console.log('Attempting local only login');
-              _this25.localLogin(ob, cb);
+              _this27.localLogin(ob, cb);
             } else {
               console.log('Unrecoverable error while trying to login', email);
               cb(err);
             }
           } else {
             console.log('Attempting local only login');
-            _this25.localLogin(ob, cb);
+            _this27.localLogin(ob, cb);
           }
         });
       }
@@ -2717,7 +2888,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'remoteLogout',
     value: function remoteLogout(cb) {
-      var _this26 = this;
+      var _this28 = this;
 
       var currentAddress = sessionStorageProxy.getItem('currentAddress');
 
@@ -2728,13 +2899,13 @@ var VexLib = function (_EventEmitter) {
       }
 
       this.axios.get('/vexapi/logout').then(function () {
-        _this26.axios = defaultAxios();
+        _this28.axios = defaultAxios();
         sessionStorageProxy.removeItem('currentAddress');
         sessionStorageProxy.removeItem('currentMnemonic');
         _xcpjsv2.default.services.transactionSigner.unregisterSigner(currentAddress);
         cb(null, true);
       }).catch(function (err) {
-        _this26.axios = defaultAxios();
+        _this28.axios = defaultAxios();
         sessionStorageProxy.removeItem('currentAddress');
         sessionStorageProxy.removeItem('currentMnemonic');
         cb(err);
@@ -2831,7 +3002,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'createSendFromWif',
     value: function createSendFromWif(wif, quantity, destination, asset, cb) {
-      var _this27 = this;
+      var _this29 = this;
 
       var keyPair = _bitcoinjsLib2.default.ECPair.fromWIF(wif, _bitcoinjsLib2.default.networks.testnet);
 
@@ -2839,7 +3010,7 @@ var VexLib = function (_EventEmitter) {
         var tx = _bitcoinjsLib2.default.Transaction.fromHex(rawHex);
 
         buildAndSign(keyPair, tx, function (signed) {
-          _this27.axios.post('/vexapi/ext_sendtx', {
+          _this29.axios.post('/vexapi/ext_sendtx', {
             rawtx: signed
           }).then(function (response) {
             cb(null, response.data.result);
@@ -2881,6 +3052,16 @@ var VexLib = function (_EventEmitter) {
     value: function setExperiments(n) {
       localStorageProxy.setItem('experiments', n);
       this.experiments = n === '1';
+
+      _axios2.default.defaults.headers.common['test'] = this.experiments ? '1' : '0';
+    }
+  }, {
+    key: 'getCurrentStorage',
+    value: function getCurrentStorage() {
+      return {
+        local: localStorageProxy,
+        session: sessionStorageProxy
+      };
     }
   }], [{
     key: 'keyPairFromMnemonic',

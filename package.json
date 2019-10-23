@@ -1,6 +1,6 @@
 {
   "name": "vexlib-js",
-  "version": "0.5.4",
+  "version": "0.5.8",
   "description": "Biblioteca para interactuar con vex",
   "main": "index.bundle.js",
   "repository": "ssh://git@10.0.0.6:10022/vex/vexlib-js.git",
@@ -56,6 +56,7 @@
   },
   "dependencies": {
     "aes-js": "^3.1.1",
+    "arc4": "^3.4.0",
     "axios": "^0.18.0",
     "bigi": "^1.4.2",
     "bignumber.js": "^7.2.1",
@@ -69,8 +70,9 @@
     "localstorage-memory": "^1.0.3",
     "regenerator-runtime": "^0.13.2",
     "socket.io-client": "^2.1.1",
+    "universal-cookie": "^4.0.0",
     "utf-8-validate": "^5.0.2",
     "wrappy": "^1.0.2",
-    "xcpjsv2": "0.0.6"
+    "xcpjsv2": "^0.0.9"
   }
 }
