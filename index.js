@@ -1488,6 +1488,7 @@ export default class VexLib extends EventEmitter {
     }
   }
 
+  _ex_createCancelEnabled = this.registerExperiment('Cancelación de órdenes', 'Cancelar órdenes abiertas usando xcpjsv2. Aumenta sustancialmente la velocidad de cancelaciones de órdenes abiertas.')
   cancelOrder(txid, cb) {
     let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
@@ -1510,30 +1511,42 @@ export default class VexLib extends EventEmitter {
       cb(null, txid)
     }
 
-    // TODO update xcpjsv2 to support cancels
-    this.axios.post('/vexapi/cancelorder', {
-      "offer_hash": txid,
-      "source": currentAddress
-    }).then((response) => {
-      if (response.status === 200) {
-        signTransaction(response.data.result, (signed) => {
-          this.axios.post('/vexapi/sendtx', {
-            rawtx: signed
-          }).then((resp) => {
-            if (resp.data.error) {
-              fail(resp.data.error)
-            } else {
-              console.log('Success cancel', resp.data.result)
-              success(resp.data.result)
-            }
-          })
+    if (this.experiments && this._ex_createFiatDepositEnabled) {
+      let doExperiment = async () => {
+        let res = await xcpjsv2.cancel(currentAddress, txid)
+
+        this.experimentResult({
+          type: 'createCancel',
+          address: currentAddress, offerHash: txid, res
         })
-      } else {
-        fail()
       }
-    }).catch((err) => {
-      fail(err)
-    })
+
+      doExperiment()
+    } else {
+      this.axios.post('/vexapi/cancelorder', {
+        "offer_hash": txid,
+        "source": currentAddress
+      }).then((response) => {
+        if (response.status === 200) {
+          signTransaction(response.data.result, (signed) => {
+            this.axios.post('/vexapi/sendtx', {
+              rawtx: signed
+            }).then((resp) => {
+              if (resp.data.error) {
+                fail(resp.data.error)
+              } else {
+                console.log('Success cancel', resp.data.result)
+                success(resp.data.result)
+              }
+            })
+          })
+        } else {
+          fail()
+        }
+      }).catch((err) => {
+        fail(err)
+      })
+    }
   }
 
   _ex_createFiatDepositEnabled = this.registerExperiment('Reporte de depósitos', 'Reporte de depósitos usando xcpjsv2. Aumenta sustancialmente la velocidad de generación de reportes de depósitos (sin tomar en cuenta el tamaño del archivo subido).')

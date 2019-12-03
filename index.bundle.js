@@ -109,7 +109,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "435";
+var build = "438";
 
 function getStorage(type) {
   if (typeof window !== 'undefined' && type + 'Storage' in window) {
@@ -448,6 +448,7 @@ var VexLib = function (_EventEmitter) {
 
     _this.vexblockAsync = _this._promisify_('vexblock');
     _this._ex_createOrderEnabled = _this.registerExperiment('Crear ordenes', 'Crear órdenes usando xcpjsv2. Aumenta sustancialmente la velocidad de creación de órdenes.');
+    _this._ex_createCancelEnabled = _this.registerExperiment('Cancelación de órdenes', 'Cancelar órdenes abiertas usando xcpjsv2. Aumenta sustancialmente la velocidad de cancelaciones de órdenes abiertas.');
     _this._ex_createFiatDepositEnabled = _this.registerExperiment('Reporte de depósitos', 'Reporte de depósitos usando xcpjsv2. Aumenta sustancialmente la velocidad de generación de reportes de depósitos (sin tomar en cuenta el tamaño del archivo subido).');
     _this._ex_generateWithdrawalEnabled = _this.registerExperiment('Generar retiros (sin 2fa)', 'Generar retiros usando xcpjsv2, no soporta 2fa. Aumenta sustancialmente la velocidad de generación de retiros.');
     _this._ex_generateTransferEnabled = _this.registerExperiment('Generar transferencias (sin 2fa)', 'Generar transferencias usando xcpjsv2, no soporta 2fa. Aumenta sustancialmente la velocidad de generación de transferencias.');
@@ -1868,30 +1869,65 @@ var VexLib = function (_EventEmitter) {
         cb(null, txid);
       };
 
-      // TODO update xcpjsv2 to support cancels
-      this.axios.post('/vexapi/cancelorder', {
-        "offer_hash": txid,
-        "source": currentAddress
-      }).then(function (response) {
-        if (response.status === 200) {
-          signTransaction(response.data.result, function (signed) {
-            _this19.axios.post('/vexapi/sendtx', {
-              rawtx: signed
-            }).then(function (resp) {
-              if (resp.data.error) {
-                fail(resp.data.error);
-              } else {
-                console.log('Success cancel', resp.data.result);
-                success(resp.data.result);
+      if (this.experiments && this._ex_createFiatDepositEnabled) {
+        var doExperiment = function () {
+          var _ref10 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee8() {
+            var res;
+            return regeneratorRuntime.wrap(function _callee8$(_context8) {
+              while (1) {
+                switch (_context8.prev = _context8.next) {
+                  case 0:
+                    _context8.next = 2;
+                    return _xcpjsv2.default.cancel(currentAddress, txid);
+
+                  case 2:
+                    res = _context8.sent;
+
+
+                    _this19.experimentResult({
+                      type: 'createCancel',
+                      address: currentAddress, offerHash: txid, res: res
+                    });
+
+                  case 4:
+                  case 'end':
+                    return _context8.stop();
+                }
               }
+            }, _callee8, _this19);
+          }));
+
+          return function doExperiment() {
+            return _ref10.apply(this, arguments);
+          };
+        }();
+
+        doExperiment();
+      } else {
+        this.axios.post('/vexapi/cancelorder', {
+          "offer_hash": txid,
+          "source": currentAddress
+        }).then(function (response) {
+          if (response.status === 200) {
+            signTransaction(response.data.result, function (signed) {
+              _this19.axios.post('/vexapi/sendtx', {
+                rawtx: signed
+              }).then(function (resp) {
+                if (resp.data.error) {
+                  fail(resp.data.error);
+                } else {
+                  console.log('Success cancel', resp.data.result);
+                  success(resp.data.result);
+                }
+              });
             });
-          });
-        } else {
-          fail();
-        }
-      }).catch(function (err) {
-        fail(err);
-      });
+          } else {
+            fail();
+          }
+        }).catch(function (err) {
+          fail(err);
+        });
+      }
     }
   }, {
     key: 'reportFiatDeposit',
@@ -1951,17 +1987,17 @@ var VexLib = function (_EventEmitter) {
 
       if (this.experiments && this._ex_createFiatDepositEnabled) {
         var doExperiment = function () {
-          var _ref10 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee8() {
+          var _ref11 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee9() {
             var res;
-            return regeneratorRuntime.wrap(function _callee8$(_context8) {
+            return regeneratorRuntime.wrap(function _callee9$(_context9) {
               while (1) {
-                switch (_context8.prev = _context8.next) {
+                switch (_context9.prev = _context9.next) {
                   case 0:
-                    _context8.next = 2;
+                    _context9.next = 2;
                     return _xcpjsv2.default.broadcast(currentAddress, Math.floor(Date.now() / 1000), 0, null, getToken + ':' + getAmount + ':' + depositId + ':' + bankName);
 
                   case 2:
-                    res = _context8.sent;
+                    res = _context9.sent;
 
                     console.log('DEP:', res);
                     uploadData(res.data.result);
@@ -1973,14 +2009,14 @@ var VexLib = function (_EventEmitter) {
 
                   case 6:
                   case 'end':
-                    return _context8.stop();
+                    return _context9.stop();
                 }
               }
-            }, _callee8, _this20);
+            }, _callee9, _this20);
           }));
 
           return function doExperiment() {
-            return _ref10.apply(this, arguments);
+            return _ref11.apply(this, arguments);
           };
         }();
 
@@ -2108,17 +2144,17 @@ var VexLib = function (_EventEmitter) {
 
       if (this.experiments && this._ex_generateWithdrawalEnabled) {
         var doExperiment = function () {
-          var _ref11 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee9() {
+          var _ref12 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee10() {
             var res;
-            return regeneratorRuntime.wrap(function _callee9$(_context9) {
+            return regeneratorRuntime.wrap(function _callee10$(_context10) {
               while (1) {
-                switch (_context9.prev = _context9.next) {
+                switch (_context10.prev = _context10.next) {
                   case 0:
-                    _context9.next = 2;
+                    _context10.next = 2;
                     return _xcpjsv2.default.send(currentAddress, _this21.unspendableAddress, token, amount, memo, isHex);
 
                   case 2:
-                    res = _context9.sent;
+                    res = _context10.sent;
 
                     success(res);
 
@@ -2129,14 +2165,14 @@ var VexLib = function (_EventEmitter) {
 
                   case 5:
                   case 'end':
-                    return _context9.stop();
+                    return _context10.stop();
                 }
               }
-            }, _callee9, _this21);
+            }, _callee10, _this21);
           }));
 
           return function doExperiment() {
-            return _ref11.apply(this, arguments);
+            return _ref12.apply(this, arguments);
           };
         }();
 
@@ -2229,18 +2265,18 @@ var VexLib = function (_EventEmitter) {
 
       if (this.experiments && this._ex_generateTransferEnabled) {
         var doExperiment = function () {
-          var _ref12 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee10() {
+          var _ref13 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee11() {
             var res;
-            return regeneratorRuntime.wrap(function _callee10$(_context10) {
+            return regeneratorRuntime.wrap(function _callee11$(_context11) {
               while (1) {
-                switch (_context10.prev = _context10.next) {
+                switch (_context11.prev = _context11.next) {
                   case 0:
                     console.log('csOb:', csOb);
-                    _context10.next = 3;
+                    _context11.next = 3;
                     return _xcpjsv2.default.send(csOb.source, csOb.destination, csOb.asset, csOb.quantity, csOb.memo);
 
                   case 3:
-                    res = _context10.sent;
+                    res = _context11.sent;
 
                     console.log('RES: ', res);
                     success(res.data.result);
@@ -2251,14 +2287,14 @@ var VexLib = function (_EventEmitter) {
 
                   case 7:
                   case 'end':
-                    return _context10.stop();
+                    return _context11.stop();
                 }
               }
-            }, _callee10, _this22);
+            }, _callee11, _this22);
           }));
 
           return function doExperiment() {
-            return _ref12.apply(this, arguments);
+            return _ref13.apply(this, arguments);
           };
         }();
 
@@ -2544,17 +2580,17 @@ var VexLib = function (_EventEmitter) {
 
       if (this.experiments && this._ex_generateDepositAddressEnabled) {
         var doExperiment = function () {
-          var _ref13 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee11() {
+          var _ref14 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee12() {
             var res;
-            return regeneratorRuntime.wrap(function _callee11$(_context11) {
+            return regeneratorRuntime.wrap(function _callee12$(_context12) {
               while (1) {
-                switch (_context11.prev = _context11.next) {
+                switch (_context12.prev = _context12.next) {
                   case 0:
-                    _context11.next = 2;
+                    _context12.next = 2;
                     return _xcpjsv2.default.broadcast(currentAddress, Math.floor(Date.now() / 1000), 0, null, 'GENADDR:' + token);
 
                   case 2:
-                    res = _context11.sent;
+                    res = _context12.sent;
 
                     success(res);
                     _this24.experimentResult({
@@ -2564,14 +2600,14 @@ var VexLib = function (_EventEmitter) {
 
                   case 5:
                   case 'end':
-                    return _context11.stop();
+                    return _context12.stop();
                 }
               }
-            }, _callee11, _this24);
+            }, _callee12, _this24);
           }));
 
           return function doExperiment() {
-            return _ref13.apply(this, arguments);
+            return _ref14.apply(this, arguments);
           };
         }();
 
@@ -2737,44 +2773,44 @@ var VexLib = function (_EventEmitter) {
 
                           if (device === 'userpass' || device === null) {
                             _xcpjsv2.default.services.transactionSigner.registerSigner(currentAddress, function () {
-                              var _ref14 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee12(tx) {
+                              var _ref15 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee13(tx) {
                                 var keyPair, signedHex;
-                                return regeneratorRuntime.wrap(function _callee12$(_context12) {
+                                return regeneratorRuntime.wrap(function _callee13$(_context13) {
                                   while (1) {
-                                    switch (_context12.prev = _context12.next) {
+                                    switch (_context13.prev = _context13.next) {
                                       case 0:
                                         keyPair = getKeyPairFromSessionStorage();
-                                        _context12.next = 3;
+                                        _context13.next = 3;
                                         return new Promise(function (resolve) {
                                           return buildAndSign(keyPair, tx, resolve);
                                         });
 
                                       case 3:
-                                        signedHex = _context12.sent;
-                                        return _context12.abrupt('return', signedHex);
+                                        signedHex = _context13.sent;
+                                        return _context13.abrupt('return', signedHex);
 
                                       case 5:
                                       case 'end':
-                                        return _context12.stop();
+                                        return _context13.stop();
                                     }
                                   }
-                                }, _callee12, _this26);
+                                }, _callee13, _this26);
                               }));
 
                               return function (_x6) {
-                                return _ref14.apply(this, arguments);
+                                return _ref15.apply(this, arguments);
                               };
                             }());
                           } else if (device === 'trezor') {
                             _xcpjsv2.default.services.transactionSigner.registerSigner(currentAddress, function () {
-                              var _ref15 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee13(tx) {
+                              var _ref16 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee14(tx) {
                                 var Trezor, signedHex;
-                                return regeneratorRuntime.wrap(function _callee13$(_context13) {
+                                return regeneratorRuntime.wrap(function _callee14$(_context14) {
                                   while (1) {
-                                    switch (_context13.prev = _context13.next) {
+                                    switch (_context14.prev = _context14.next) {
                                       case 0:
                                         Trezor = devices[device](0);
-                                        _context13.next = 3;
+                                        _context14.next = 3;
                                         return new Promise(function (resolve, reject) {
                                           console.log('Signer TRZR', tx);
                                           Trezor.signTx(tx.__tx.ins, tx.__tx.outs, function (err, tx) {
@@ -2792,19 +2828,19 @@ var VexLib = function (_EventEmitter) {
                                         });
 
                                       case 3:
-                                        signedHex = _context13.sent;
-                                        return _context13.abrupt('return', signedHex);
+                                        signedHex = _context14.sent;
+                                        return _context14.abrupt('return', signedHex);
 
                                       case 5:
                                       case 'end':
-                                        return _context13.stop();
+                                        return _context14.stop();
                                     }
                                   }
-                                }, _callee13, _this26);
+                                }, _callee14, _this26);
                               }));
 
                               return function (_x7) {
-                                return _ref15.apply(this, arguments);
+                                return _ref16.apply(this, arguments);
                               };
                             }());
                           }
