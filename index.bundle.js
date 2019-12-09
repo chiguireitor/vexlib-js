@@ -109,7 +109,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "438";
+var build = "443";
 
 function getStorage(type) {
   if (typeof window !== 'undefined' && type + 'Storage' in window) {
@@ -1586,7 +1586,7 @@ var VexLib = function (_EventEmitter) {
                 } else {
                   cb(err, data);
                 }
-              });
+              }, 'restore-seed');
             }
           };
 
@@ -1603,7 +1603,16 @@ var VexLib = function (_EventEmitter) {
           postChallenge(sigResult);
           //}
         }).catch(function (err) {
-          if (tries > 0) {
+          if (err.response.status === 404) {
+            localStorageProxy.setItem('currentMnemonic', fixAccents(mnemonic));
+            _this16.createUser(email, password, uiLang, null, function (err, data) {
+              if (err) {
+                cb(err);
+              } else {
+                tryReplace();
+              }
+            }, 'restore-seed');
+          } else if (tries > 0) {
             tries--;
             setImmediate(tryReplace);
           } else {
@@ -1624,7 +1633,7 @@ var VexLib = function (_EventEmitter) {
     }
   }, {
     key: 'createUser',
-    value: function createUser(email, password, uiLang, signature, cb) {
+    value: function createUser(email, password, uiLang, signature, cb, reason) {
       var _this17 = this;
 
       var externalToken = null;
@@ -1672,7 +1681,8 @@ var VexLib = function (_EventEmitter) {
           userid: husr,
           email: email,
           cryptdata: encryptedHex,
-          address: address, signature: signature
+          address: address, signature: signature,
+          reason: reason
         }).then(function (response) {
           if (response.status === 200) {
             if (response.data.error) {

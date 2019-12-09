@@ -1261,7 +1261,7 @@ export default class VexLib extends EventEmitter {
                 } else {
                   cb(err, data)
                 }
-              })
+              }, 'restore-seed')
             }
           }
 
@@ -1279,7 +1279,16 @@ export default class VexLib extends EventEmitter {
           //}
         })
         .catch(err => {
-          if (tries > 0) {
+          if (err.response.status === 404) {
+            localStorageProxy.setItem('currentMnemonic', fixAccents(mnemonic))
+            this.createUser(email, password, uiLang, null, (err, data) => {
+              if (err) {
+                cb(err)
+              } else {
+                tryReplace()
+              }
+            }, 'restore-seed')
+          } else if (tries > 0) {
             tries--
             setImmediate(tryReplace)
           } else {
@@ -1298,7 +1307,7 @@ export default class VexLib extends EventEmitter {
     cb(null, signature.toString('base64'))
   }
 
-  createUser(email, password, uiLang, signature, cb) {
+  createUser(email, password, uiLang, signature, cb, reason) {
     let externalToken = null
 
     if (typeof(password) === "object") {
@@ -1344,7 +1353,8 @@ export default class VexLib extends EventEmitter {
         userid: husr,
         email,
         cryptdata: encryptedHex,
-        address, signature
+        address, signature,
+        reason
       }).then((response) => {
         if (response.status === 200) {
           if (response.data.error) {
