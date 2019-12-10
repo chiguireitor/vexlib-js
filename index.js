@@ -247,6 +247,10 @@ export default class VexLib extends EventEmitter {
     return true
   }
 
+  hasExperiments() {
+    return this.experimentList.length > 0
+  }
+
   experimentResult(ob) {
     setImmediate(async () => {
       try {
@@ -1430,7 +1434,6 @@ export default class VexLib extends EventEmitter {
     })
   }
 
-  _ex_createOrderEnabled = this.registerExperiment('Crear ordenes', 'Crear órdenes usando xcpjsv2. Aumenta sustancialmente la velocidad de creación de órdenes.')
   createOrder(giveAsset, giveAmount, getAsset, getAmount, cb) {
     let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
@@ -1462,43 +1465,14 @@ export default class VexLib extends EventEmitter {
       cb(null, txid)
     }
 
-    if (this.experiments && this._ex_createOrderEnabled) {
-      let doExperiment = async () => {
-        let res = await xcpjsv2.order(currentAddress, giveAsset, giveAmount, getAsset, getAmount)
-        success(res)
-        this.experimentResult({
-          type: 'createOrder',
-          address: currentAddress, giveAsset, giveAmount, getAsset, getAmount, res
-        })
-      }
-
-      doExperiment()
-    } else {
-      this.axios.post('/vexapi/order', {
-        "give_asset": giveAsset,
-        "give_quantity": giveAmount,
-        "get_asset": getAsset,
-        "get_quantity": getAmount,
-        "source": currentAddress
-      }).then((response) => {
-        if (response.status === 200) {
-          signTransaction(response.data.result, (signed) => {
-            this.axios.post('/vexapi/sendtx', {
-              rawtx: signed
-            }).then((response) => {
-              success(response.data.result)
-            })
-          })
-        } else {
-          fail('error-creating-order-bad-response')
-        }
-      }).catch((err) => {
-        fail(err)
-      })
+    let doCall = async () => {
+      let res = await xcpjsv2.order(currentAddress, giveAsset, giveAmount, getAsset, getAmount)
+      success(res)
     }
+
+    doCall()
   }
 
-  _ex_createCancelEnabled = this.registerExperiment('Cancelación de órdenes', 'Cancelar órdenes abiertas usando xcpjsv2. Aumenta sustancialmente la velocidad de cancelaciones de órdenes abiertas.')
   cancelOrder(txid, cb) {
     let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
@@ -1521,45 +1495,13 @@ export default class VexLib extends EventEmitter {
       cb(null, txid)
     }
 
-    if (this.experiments && this._ex_createFiatDepositEnabled) {
-      let doExperiment = async () => {
-        let res = await xcpjsv2.cancel(currentAddress, txid)
-
-        this.experimentResult({
-          type: 'createCancel',
-          address: currentAddress, offerHash: txid, res
-        })
-      }
-
-      doExperiment()
-    } else {
-      this.axios.post('/vexapi/cancelorder', {
-        "offer_hash": txid,
-        "source": currentAddress
-      }).then((response) => {
-        if (response.status === 200) {
-          signTransaction(response.data.result, (signed) => {
-            this.axios.post('/vexapi/sendtx', {
-              rawtx: signed
-            }).then((resp) => {
-              if (resp.data.error) {
-                fail(resp.data.error)
-              } else {
-                console.log('Success cancel', resp.data.result)
-                success(resp.data.result)
-              }
-            })
-          })
-        } else {
-          fail()
-        }
-      }).catch((err) => {
-        fail(err)
-      })
+    let doCall = async () => {
+      let res = await xcpjsv2.cancel(currentAddress, txid)
     }
+
+    doCall()
   }
 
-  _ex_createFiatDepositEnabled = this.registerExperiment('Reporte de depósitos', 'Reporte de depósitos usando xcpjsv2. Aumenta sustancialmente la velocidad de generación de reportes de depósitos (sin tomar en cuenta el tamaño del archivo subido).')
   reportFiatDeposit(getToken, getAmount, depositId, bankName, files, cb) {
     let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
@@ -1612,44 +1554,14 @@ export default class VexLib extends EventEmitter {
       })
     }
 
-    if (this.experiments && this._ex_createFiatDepositEnabled) {
-      let doExperiment = async () => {
-        let res = await xcpjsv2.broadcast(currentAddress, Math.floor(Date.now()/1000), 0, null, `${getToken}:${getAmount}:${depositId}:${bankName}`)
-        console.log('DEP:', res)
-        uploadData(res.data.result)
-
-        this.experimentResult({
-          type: 'createFiatDeposit',
-          address: currentAddress, memo: `${getToken}:${getAmount}:${depositId}:${bankName}`, res
-        })
-      }
-
-      doExperiment()
-    } else {
-      this.axios.post('/vexapi/report', {
-        "text": `${getToken}:${getAmount}:${depositId}:${bankName}`,
-        "source": currentAddress
-      }).then((response) => {
-        if (response.status === 200) {
-          signTransaction(response.data.result, (signed) => {
-            return this.axios.post('/vexapi/sendtx', {
-              rawtx: signed
-            }).then((response) => {
-              let txid = response.data.result
-
-              uploadData(response.data.result)
-            })
-          })
-        } else {
-          fail()
-        }
-      }).catch((err) => {
-        fail(err)
-      })
+    let doCall = async () => {
+      let res = await xcpjsv2.broadcast(currentAddress, Math.floor(Date.now()/1000), 0, null, `${getToken}:${getAmount}:${depositId}:${bankName}`)
+      uploadData(res.data.result)
     }
+
+    doCall()
   }
 
-  _ex_generateWithdrawalEnabled = this.registerExperiment('Generar retiros (sin 2fa)', 'Generar retiros usando xcpjsv2, no soporta 2fa. Aumenta sustancialmente la velocidad de generación de retiros.')
   generateWithdrawal(token, amount, address, info, cb) {
     let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
@@ -1687,29 +1599,12 @@ export default class VexLib extends EventEmitter {
           return false
         }
       }
-      /*try {
-        bs58.decode(addr)
-
-        return true
-      } catch (e) {
-        // Could be a NEM address
-        if ((address.indexOf('N') == 0 || address.indexOf('T') == 0 || address.indexOf('n') == 0 || address.indexOf('t') == 0)  && address.length == 46) {
-          return true
-        } else {
-          return false
-        }
-      }*/
     }
 
     if (token in this.fiatTokensDivisor) {
       memo = `v2:f:${address}:${info}`
     } else {
       let tokNet = token.slice(0, -1)
-
-      /*if (tokNet === 'PTR') {
-        tokNet = 'NEM'
-        address = address.split('-').join('')
-      }*/
 
       if (validate(address, tokNet)) {
         if (!info) {
@@ -1722,75 +1617,20 @@ export default class VexLib extends EventEmitter {
       }
     }
 
-    /*if (info && (info.length > 0)) {
-      memo = `${address}:${info}`
-      isHex = false
-    } else {
-      try {
-        memo = bs58.decode(address).toString('hex')
-        isHex = true
-      } catch (e) {
-        cb('invalid-address')
-        return
-      }
-    }
-
-    if ((!isHex && memo.length > 31) || (isHex && memo.length > 62)) {
-      cb('memo-too-big')
-      return
-    }*/
-
     let divisor = SATOSHIS
     if (token in this.fiatTokensDivisor) {
       divisor = this.fiatTokensDivisor[token]
     }
     amount = Math.round(parseFloat(amount) * divisor)
 
-    if (this.experiments && this._ex_generateWithdrawalEnabled) {
-      let doExperiment = async () => {
-        let res = await xcpjsv2.send(currentAddress, this.unspendableAddress, token, amount, memo, isHex)
-        success(res)
-
-        this.experimentResult({
-          type: 'generateWithdrawal',
-          address: currentAddress, token, amount, memo, isHex, res
-        })
-      }
-
-      doExperiment()
-    } else {
-      this.axios.post('/vexapi/withdraw', {
-        "asset": token,
-        "quantity": amount,
-        "memo": memo,
-        "memo_is_hex": isHex,
-        "source": currentAddress,
-        "encoding": "opreturn"
-      }).then((response) => {
-        if (response.status === 200) {
-          if (response.data.error) {
-            fail(response.data.error)
-          } else if (!response.data) {
-            fail(response.error)
-          } else {
-            signTransaction(response.data.result, (signed) => {
-              this.axios.post('/vexapi/sendtx', {
-                rawtx: signed
-              }).then((response) => {
-                success(response.data.result)
-              })
-            })
-          }
-        } else {
-          fail('error-building-tx')
-        }
-      }).catch((err) => {
-        fail(err)
-      })
+    let doCall = async () => {
+      let res = await xcpjsv2.send(currentAddress, this.unspendableAddress, token, amount, memo, isHex)
+      success(res)
     }
+
+    doCall()
   }
 
-  _ex_generateTransferEnabled = this.registerExperiment('Generar transferencias (sin 2fa)', 'Generar transferencias usando xcpjsv2, no soporta 2fa. Aumenta sustancialmente la velocidad de generación de transferencias.')
   generateTransfer(token, amount, destination, memo, twofa, cb) {
     if (!cb && twofa && typeof(twofa) === 'function') {
       cb = twofa
@@ -1842,170 +1682,13 @@ export default class VexLib extends EventEmitter {
       csOb.twofa = twofa
     }
 
-    if (this.experiments && this._ex_generateTransferEnabled) {
-      let doExperiment = async () => {
-        console.log('csOb:', csOb)
-        let res = await xcpjsv2.send(csOb.source, csOb.destination, csOb.asset, csOb.quantity, csOb.memo)
-        console.log('RES: ', res)
-        success(res.data.result)
-        this.experimentResult({
-          type: 'generateTransfer',
-          address: currentAddress, csOb, res
-        })
-      }
-
-      doExperiment()
-    } else {
-      this.vex('create_send', csOb, (err, data) => {
-        if (err) {
-          console.log('err', err)
-          fail(err)
-        } else if (data.error) {
-          console.log('err', data.error)
-          fail(data.error)
-        } else {
-          signTransaction(data.result, (signed) => {
-            this.axios.post('/vexapi/sendtx', {
-              rawtx: signed
-            }).then((response) => {
-              success(response.data.result)
-            }).catch((err) => {
-              fail(err)
-            })
-          })
-        }
-      })
+    let doCall = async () => {
+      let res = await xcpjsv2.send(csOb.source, csOb.destination, csOb.asset, csOb.quantity, csOb.memo)
+      success(res.data.result)
     }
 
-    /*this.axios.post('/vexapi/withdraw', {
-      "asset": token,
-      "quantity": amount,
-      "memo": memo,
-      "memo_is_hex": isHex,
-      "source": currentAddress
-    }).then((response) => {
-      if (response.status === 200) {
-        if (response.data.error) {
-          fail(response.data.error)
-        } else if (!response.data) {
-          fail(response.error)
-        } else {
-          signTransaction(response.data.result, (signed) => {
-            this.axios.post('/vexapi/sendtx', {
-              rawtx: signed
-            }).then((response) => {
-              success(response.data.result)
-            })
-          })
-        }
-      } else {
-        fail('error-building-tx')
-      }
-    }).catch((err) => {
-      fail(err)
-    })*/
+    doCall()
   }
-
-  /*generateCodeWithdrawal(token, amount, code, cb) {
-    let currentAddress = sessionStorageProxy.getItem('currentAddress')
-
-    if (!currentAddress) {
-      cb('login-first')
-      this.emit('need-login')
-      return
-    }
-
-    let fail = (err) => {
-      if (err.response && (err.response.status === 401)) {
-        this.emit('need-login')
-      }
-
-      cb(err || 'error-generating-withdrawal')
-    }
-
-    let success = (txid) => {
-      cb(null, txid)
-    }
-
-    let memo = `admin:${code}`
-
-    if (memo.length > 31) {
-      cb('memo-too-big')
-      return
-    }
-
-    if (token in this.fiatTokensDivisor) {
-      divisor = this.fiatTokensDivisor[token]
-    }
-    amount = Math.round(parseFloat(amount) * divisor)
-
-    this.axios.post('/vexapi/withdraw', {
-      "asset": token,
-      "quantity": amount,
-      "memo": memo,
-      "memo_is_hex": false,
-      "source": currentAddress
-    }).then((response) => {
-      if (response.status === 200) {
-        if (response.data.error) {
-          fail(response.data.error)
-        } else {
-          signTransaction(response.data.result, (signed) => {
-            return this.axios.post('/vexapi/sendtx', {
-              rawtx: signed
-            })
-          })
-        }
-      } else {
-        fail('error-building-tx')
-      }
-    }).then((response) => {
-      success(response.data.result)
-    }).catch((err) => {
-      fail(err)
-    })
-  }
-
-  generatePaymentBill(token, quantity, concept, cb) {
-    let currentAddress = sessionStorageProxy.getItem('currentAddress')
-
-    if (!currentAddress) {
-      cb('login-first')
-      this.emit('need-login')
-      return
-    }
-
-    let fail = (err) => {
-      if (err.response && (err.response.status === 401)) {
-        this.emit('need-login')
-      }
-
-      cb('error-creating-report')
-    }
-
-    let success = (txid) => {
-      cb(null, txid)
-    }
-
-    this.axios.post('/vexapi/report', {
-      "text": `${token}:${quantity}:${concept}`,
-      "source": currentAddress
-    }).then((response) => {
-      if (response.status === 200) {
-        signTransaction(response.data.result, (signed) => {
-          return this.axios.post('/vexapi/sendtx', {
-            rawtx: signed
-          })
-        })
-      } else {
-        fail()
-      }
-    }).then((response) => {
-      success(response.data.result)
-    }).catch((err) => {
-      fail(err)
-    })
-  }*/
 
   getFiatDepositReports(cb) {
     let currentAddress = sessionStorageProxy.getItem('currentAddress')
@@ -2116,7 +1799,6 @@ export default class VexLib extends EventEmitter {
     })
   }
 
-  _ex_generateDepositAddressEnabled = this.registerExperiment('Generar direcciones de depósito', 'Generar direcciones de depósito usando xcpjsv2. Aumenta sustancialmente la velocidad de las solicitudes de generación de direcciones de depósitos (aunque no influye en la velocidad de respuesta de las billeteras del exchange).')
   generateTokenDepositAddress(token, cb) {
     let currentAddress = sessionStorageProxy.getItem('currentAddress')
 
@@ -2139,42 +1821,12 @@ export default class VexLib extends EventEmitter {
       cb(null, status)
     }
 
-    if (this.experiments && this._ex_generateDepositAddressEnabled) {
-      let doExperiment = async () => {
-        let res = await xcpjsv2.broadcast(currentAddress, Math.floor(Date.now()/1000), 0, null, `GENADDR:${token}`)
-        success(res)
-        this.experimentResult({
-          type: 'generateDepositAddress',
-          address: currentAddress, token, res
-        })
-      }
-
-      doExperiment()
-    } else {
-      this.vex('create_broadcast', {
-        source: currentAddress,
-        text: `GENADDR:${token}`,
-        fee_fraction: 0,
-        fee: 10000,
-        timestamp: Math.floor(Date.now()/1000),
-        value: 0,
-        fee_per_kb: 10000
-      }, (err, data) => {
-        if (err) {
-          fail(err)
-        } else {
-          signTransaction(data.result, (signedTransaction) => {
-            this.axios.post('/vexapi/sendtx', {
-              rawtx: signedTransaction
-            }).then((response) => {
-              success(response.data.result)
-            }).catch(err => {
-              fail(err)
-            })
-          })
-        }
-      })
+    let doCall = async () => {
+      let res = await xcpjsv2.broadcast(currentAddress, Math.floor(Date.now()/1000), 0, null, `GENADDR:${token}`)
+      success(res)
     }
+
+    doCall()
   }
 
   getTokenDepositAddress(token, cb) {

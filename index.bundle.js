@@ -109,7 +109,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "443";
+var build = "446";
 
 function getStorage(type) {
   if (typeof window !== 'undefined' && type + 'Storage' in window) {
@@ -315,6 +315,11 @@ var VexLib = function (_EventEmitter) {
       return true;
     }
   }, {
+    key: 'hasExperiments',
+    value: function hasExperiments() {
+      return this.experimentList.length > 0;
+    }
+  }, {
     key: 'experimentResult',
     value: function experimentResult(ob) {
       var _this2 = this;
@@ -447,12 +452,6 @@ var VexLib = function (_EventEmitter) {
     };
 
     _this.vexblockAsync = _this._promisify_('vexblock');
-    _this._ex_createOrderEnabled = _this.registerExperiment('Crear ordenes', 'Crear órdenes usando xcpjsv2. Aumenta sustancialmente la velocidad de creación de órdenes.');
-    _this._ex_createCancelEnabled = _this.registerExperiment('Cancelación de órdenes', 'Cancelar órdenes abiertas usando xcpjsv2. Aumenta sustancialmente la velocidad de cancelaciones de órdenes abiertas.');
-    _this._ex_createFiatDepositEnabled = _this.registerExperiment('Reporte de depósitos', 'Reporte de depósitos usando xcpjsv2. Aumenta sustancialmente la velocidad de generación de reportes de depósitos (sin tomar en cuenta el tamaño del archivo subido).');
-    _this._ex_generateWithdrawalEnabled = _this.registerExperiment('Generar retiros (sin 2fa)', 'Generar retiros usando xcpjsv2, no soporta 2fa. Aumenta sustancialmente la velocidad de generación de retiros.');
-    _this._ex_generateTransferEnabled = _this.registerExperiment('Generar transferencias (sin 2fa)', 'Generar transferencias usando xcpjsv2, no soporta 2fa. Aumenta sustancialmente la velocidad de generación de transferencias.');
-    _this._ex_generateDepositAddressEnabled = _this.registerExperiment('Generar direcciones de depósito', 'Generar direcciones de depósito usando xcpjsv2. Aumenta sustancialmente la velocidad de las solicitudes de generación de direcciones de depósitos (aunque no influye en la velocidad de respuesta de las billeteras del exchange).');
 
 
     _this.lang = options.lang || 'EN';
@@ -1795,63 +1794,35 @@ var VexLib = function (_EventEmitter) {
         cb(null, txid);
       };
 
-      if (this.experiments && this._ex_createOrderEnabled) {
-        var doExperiment = function () {
-          var _ref9 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee7() {
-            var res;
-            return regeneratorRuntime.wrap(function _callee7$(_context7) {
-              while (1) {
-                switch (_context7.prev = _context7.next) {
-                  case 0:
-                    _context7.next = 2;
-                    return _xcpjsv2.default.order(currentAddress, giveAsset, giveAmount, getAsset, getAmount);
+      var doCall = function () {
+        var _ref9 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee7() {
+          var res;
+          return regeneratorRuntime.wrap(function _callee7$(_context7) {
+            while (1) {
+              switch (_context7.prev = _context7.next) {
+                case 0:
+                  _context7.next = 2;
+                  return _xcpjsv2.default.order(currentAddress, giveAsset, giveAmount, getAsset, getAmount);
 
-                  case 2:
-                    res = _context7.sent;
+                case 2:
+                  res = _context7.sent;
 
-                    success(res);
-                    _this18.experimentResult({
-                      type: 'createOrder',
-                      address: currentAddress, giveAsset: giveAsset, giveAmount: giveAmount, getAsset: getAsset, getAmount: getAmount, res: res
-                    });
+                  success(res);
 
-                  case 5:
-                  case 'end':
-                    return _context7.stop();
-                }
+                case 4:
+                case 'end':
+                  return _context7.stop();
               }
-            }, _callee7, _this18);
-          }));
+            }
+          }, _callee7, _this18);
+        }));
 
-          return function doExperiment() {
-            return _ref9.apply(this, arguments);
-          };
-        }();
+        return function doCall() {
+          return _ref9.apply(this, arguments);
+        };
+      }();
 
-        doExperiment();
-      } else {
-        this.axios.post('/vexapi/order', {
-          "give_asset": giveAsset,
-          "give_quantity": giveAmount,
-          "get_asset": getAsset,
-          "get_quantity": getAmount,
-          "source": currentAddress
-        }).then(function (response) {
-          if (response.status === 200) {
-            signTransaction(response.data.result, function (signed) {
-              _this18.axios.post('/vexapi/sendtx', {
-                rawtx: signed
-              }).then(function (response) {
-                success(response.data.result);
-              });
-            });
-          } else {
-            fail('error-creating-order-bad-response');
-          }
-        }).catch(function (err) {
-          fail(err);
-        });
-      }
+      doCall();
     }
   }, {
     key: 'cancelOrder',
@@ -1879,65 +1850,33 @@ var VexLib = function (_EventEmitter) {
         cb(null, txid);
       };
 
-      if (this.experiments && this._ex_createFiatDepositEnabled) {
-        var doExperiment = function () {
-          var _ref10 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee8() {
-            var res;
-            return regeneratorRuntime.wrap(function _callee8$(_context8) {
-              while (1) {
-                switch (_context8.prev = _context8.next) {
-                  case 0:
-                    _context8.next = 2;
-                    return _xcpjsv2.default.cancel(currentAddress, txid);
+      var doCall = function () {
+        var _ref10 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee8() {
+          var res;
+          return regeneratorRuntime.wrap(function _callee8$(_context8) {
+            while (1) {
+              switch (_context8.prev = _context8.next) {
+                case 0:
+                  _context8.next = 2;
+                  return _xcpjsv2.default.cancel(currentAddress, txid);
 
-                  case 2:
-                    res = _context8.sent;
+                case 2:
+                  res = _context8.sent;
 
-
-                    _this19.experimentResult({
-                      type: 'createCancel',
-                      address: currentAddress, offerHash: txid, res: res
-                    });
-
-                  case 4:
-                  case 'end':
-                    return _context8.stop();
-                }
+                case 3:
+                case 'end':
+                  return _context8.stop();
               }
-            }, _callee8, _this19);
-          }));
+            }
+          }, _callee8, _this19);
+        }));
 
-          return function doExperiment() {
-            return _ref10.apply(this, arguments);
-          };
-        }();
+        return function doCall() {
+          return _ref10.apply(this, arguments);
+        };
+      }();
 
-        doExperiment();
-      } else {
-        this.axios.post('/vexapi/cancelorder', {
-          "offer_hash": txid,
-          "source": currentAddress
-        }).then(function (response) {
-          if (response.status === 200) {
-            signTransaction(response.data.result, function (signed) {
-              _this19.axios.post('/vexapi/sendtx', {
-                rawtx: signed
-              }).then(function (resp) {
-                if (resp.data.error) {
-                  fail(resp.data.error);
-                } else {
-                  console.log('Success cancel', resp.data.result);
-                  success(resp.data.result);
-                }
-              });
-            });
-          } else {
-            fail();
-          }
-        }).catch(function (err) {
-          fail(err);
-        });
-      }
+      doCall();
     }
   }, {
     key: 'reportFiatDeposit',
@@ -1995,64 +1934,35 @@ var VexLib = function (_EventEmitter) {
         });
       };
 
-      if (this.experiments && this._ex_createFiatDepositEnabled) {
-        var doExperiment = function () {
-          var _ref11 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee9() {
-            var res;
-            return regeneratorRuntime.wrap(function _callee9$(_context9) {
-              while (1) {
-                switch (_context9.prev = _context9.next) {
-                  case 0:
-                    _context9.next = 2;
-                    return _xcpjsv2.default.broadcast(currentAddress, Math.floor(Date.now() / 1000), 0, null, getToken + ':' + getAmount + ':' + depositId + ':' + bankName);
+      var doCall = function () {
+        var _ref11 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee9() {
+          var res;
+          return regeneratorRuntime.wrap(function _callee9$(_context9) {
+            while (1) {
+              switch (_context9.prev = _context9.next) {
+                case 0:
+                  _context9.next = 2;
+                  return _xcpjsv2.default.broadcast(currentAddress, Math.floor(Date.now() / 1000), 0, null, getToken + ':' + getAmount + ':' + depositId + ':' + bankName);
 
-                  case 2:
-                    res = _context9.sent;
+                case 2:
+                  res = _context9.sent;
 
-                    console.log('DEP:', res);
-                    uploadData(res.data.result);
+                  uploadData(res.data.result);
 
-                    _this20.experimentResult({
-                      type: 'createFiatDeposit',
-                      address: currentAddress, memo: getToken + ':' + getAmount + ':' + depositId + ':' + bankName, res: res
-                    });
-
-                  case 6:
-                  case 'end':
-                    return _context9.stop();
-                }
+                case 4:
+                case 'end':
+                  return _context9.stop();
               }
-            }, _callee9, _this20);
-          }));
+            }
+          }, _callee9, _this20);
+        }));
 
-          return function doExperiment() {
-            return _ref11.apply(this, arguments);
-          };
-        }();
+        return function doCall() {
+          return _ref11.apply(this, arguments);
+        };
+      }();
 
-        doExperiment();
-      } else {
-        this.axios.post('/vexapi/report', {
-          "text": getToken + ':' + getAmount + ':' + depositId + ':' + bankName,
-          "source": currentAddress
-        }).then(function (response) {
-          if (response.status === 200) {
-            signTransaction(response.data.result, function (signed) {
-              return _this20.axios.post('/vexapi/sendtx', {
-                rawtx: signed
-              }).then(function (response) {
-                var txid = response.data.result;
-
-                uploadData(response.data.result);
-              });
-            });
-          } else {
-            fail();
-          }
-        }).catch(function (err) {
-          fail(err);
-        });
-      }
+      doCall();
     }
   }, {
     key: 'generateWithdrawal',
@@ -2095,28 +2005,12 @@ var VexLib = function (_EventEmitter) {
             return false;
           }
         }
-        /*try {
-          bs58.decode(addr)
-           return true
-        } catch (e) {
-          // Could be a NEM address
-          if ((address.indexOf('N') == 0 || address.indexOf('T') == 0 || address.indexOf('n') == 0 || address.indexOf('t') == 0)  && address.length == 46) {
-            return true
-          } else {
-            return false
-          }
-        }*/
       };
 
       if (token in this.fiatTokensDivisor) {
         memo = 'v2:f:' + address + ':' + info;
       } else {
         var tokNet = token.slice(0, -1);
-
-        /*if (tokNet === 'PTR') {
-          tokNet = 'NEM'
-          address = address.split('-').join('')
-        }*/
 
         if (validate(address, tokNet)) {
           if (!info) {
@@ -2129,94 +2023,41 @@ var VexLib = function (_EventEmitter) {
         }
       }
 
-      /*if (info && (info.length > 0)) {
-        memo = `:`
-        isHex = false
-      } else {
-        try {
-          memo = bs58.decode(address).toString('hex')
-          isHex = true
-        } catch (e) {
-          cb('invalid-address')
-          return
-        }
-      }
-       if ((!isHex && memo.length > 31) || (isHex && memo.length > 62)) {
-        cb('memo-too-big')
-        return
-      }*/
-
       var divisor = SATOSHIS;
       if (token in this.fiatTokensDivisor) {
         divisor = this.fiatTokensDivisor[token];
       }
       amount = Math.round(parseFloat(amount) * divisor);
 
-      if (this.experiments && this._ex_generateWithdrawalEnabled) {
-        var doExperiment = function () {
-          var _ref12 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee10() {
-            var res;
-            return regeneratorRuntime.wrap(function _callee10$(_context10) {
-              while (1) {
-                switch (_context10.prev = _context10.next) {
-                  case 0:
-                    _context10.next = 2;
-                    return _xcpjsv2.default.send(currentAddress, _this21.unspendableAddress, token, amount, memo, isHex);
+      var doCall = function () {
+        var _ref12 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee10() {
+          var res;
+          return regeneratorRuntime.wrap(function _callee10$(_context10) {
+            while (1) {
+              switch (_context10.prev = _context10.next) {
+                case 0:
+                  _context10.next = 2;
+                  return _xcpjsv2.default.send(currentAddress, _this21.unspendableAddress, token, amount, memo, isHex);
 
-                  case 2:
-                    res = _context10.sent;
+                case 2:
+                  res = _context10.sent;
 
-                    success(res);
+                  success(res);
 
-                    _this21.experimentResult({
-                      type: 'generateWithdrawal',
-                      address: currentAddress, token: token, amount: amount, memo: memo, isHex: isHex, res: res
-                    });
-
-                  case 5:
-                  case 'end':
-                    return _context10.stop();
-                }
+                case 4:
+                case 'end':
+                  return _context10.stop();
               }
-            }, _callee10, _this21);
-          }));
-
-          return function doExperiment() {
-            return _ref12.apply(this, arguments);
-          };
-        }();
-
-        doExperiment();
-      } else {
-        this.axios.post('/vexapi/withdraw', {
-          "asset": token,
-          "quantity": amount,
-          "memo": memo,
-          "memo_is_hex": isHex,
-          "source": currentAddress,
-          "encoding": "opreturn"
-        }).then(function (response) {
-          if (response.status === 200) {
-            if (response.data.error) {
-              fail(response.data.error);
-            } else if (!response.data) {
-              fail(response.error);
-            } else {
-              signTransaction(response.data.result, function (signed) {
-                _this21.axios.post('/vexapi/sendtx', {
-                  rawtx: signed
-                }).then(function (response) {
-                  success(response.data.result);
-                });
-              });
             }
-          } else {
-            fail('error-building-tx');
-          }
-        }).catch(function (err) {
-          fail(err);
-        });
-      }
+          }, _callee10, _this21);
+        }));
+
+        return function doCall() {
+          return _ref12.apply(this, arguments);
+        };
+      }();
+
+      doCall();
     }
   }, {
     key: 'generateTransfer',
@@ -2273,180 +2114,36 @@ var VexLib = function (_EventEmitter) {
         csOb.twofa = twofa;
       }
 
-      if (this.experiments && this._ex_generateTransferEnabled) {
-        var doExperiment = function () {
-          var _ref13 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee11() {
-            var res;
-            return regeneratorRuntime.wrap(function _callee11$(_context11) {
-              while (1) {
-                switch (_context11.prev = _context11.next) {
-                  case 0:
-                    console.log('csOb:', csOb);
-                    _context11.next = 3;
-                    return _xcpjsv2.default.send(csOb.source, csOb.destination, csOb.asset, csOb.quantity, csOb.memo);
+      var doCall = function () {
+        var _ref13 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee11() {
+          var res;
+          return regeneratorRuntime.wrap(function _callee11$(_context11) {
+            while (1) {
+              switch (_context11.prev = _context11.next) {
+                case 0:
+                  _context11.next = 2;
+                  return _xcpjsv2.default.send(csOb.source, csOb.destination, csOb.asset, csOb.quantity, csOb.memo);
 
-                  case 3:
-                    res = _context11.sent;
+                case 2:
+                  res = _context11.sent;
 
-                    console.log('RES: ', res);
-                    success(res.data.result);
-                    _this22.experimentResult({
-                      type: 'generateTransfer',
-                      address: currentAddress, csOb: csOb, res: res
-                    });
+                  success(res.data.result);
 
-                  case 7:
-                  case 'end':
-                    return _context11.stop();
-                }
+                case 4:
+                case 'end':
+                  return _context11.stop();
               }
-            }, _callee11, _this22);
-          }));
+            }
+          }, _callee11, _this22);
+        }));
 
-          return function doExperiment() {
-            return _ref13.apply(this, arguments);
-          };
-        }();
+        return function doCall() {
+          return _ref13.apply(this, arguments);
+        };
+      }();
 
-        doExperiment();
-      } else {
-        this.vex('create_send', csOb, function (err, data) {
-          if (err) {
-            console.log('err', err);
-            fail(err);
-          } else if (data.error) {
-            console.log('err', data.error);
-            fail(data.error);
-          } else {
-            signTransaction(data.result, function (signed) {
-              _this22.axios.post('/vexapi/sendtx', {
-                rawtx: signed
-              }).then(function (response) {
-                success(response.data.result);
-              }).catch(function (err) {
-                fail(err);
-              });
-            });
-          }
-        });
-      }
-
-      /*this.axios.post('/vexapi/withdraw', {
-        "asset": token,
-        "quantity": amount,
-        "memo": memo,
-        "memo_is_hex": isHex,
-        "source": currentAddress
-      }).then((response) => {
-        if (response.status === 200) {
-          if (response.data.error) {
-            fail(response.data.error)
-          } else if (!response.data) {
-            fail(response.error)
-          } else {
-            signTransaction(response.data.result, (signed) => {
-              this.axios.post('/vexapi/sendtx', {
-                rawtx: signed
-              }).then((response) => {
-                success(response.data.result)
-              })
-            })
-          }
-        } else {
-          fail('error-building-tx')
-        }
-      }).catch((err) => {
-        fail(err)
-      })*/
+      doCall();
     }
-
-    /*generateCodeWithdrawal(token, amount, code, cb) {
-      let currentAddress = sessionStorageProxy.getItem('currentAddress')
-       if (!currentAddress) {
-        cb('login-first')
-        this.emit('need-login')
-        return
-      }
-       let fail = (err) => {
-        if (err.response && (err.response.status === 401)) {
-          this.emit('need-login')
-        }
-         cb(err || 'error-generating-withdrawal')
-      }
-       let success = (txid) => {
-        cb(null, txid)
-      }
-       let memo = `admin:`
-       if (memo.length > 31) {
-        cb('memo-too-big')
-        return
-      }
-       if (token in this.fiatTokensDivisor) {
-        divisor = this.fiatTokensDivisor[token]
-      }
-      amount = Math.round(parseFloat(amount) * divisor)
-       this.axios.post('/vexapi/withdraw', {
-        "asset": token,
-        "quantity": amount,
-        "memo": memo,
-        "memo_is_hex": false,
-        "source": currentAddress
-      }).then((response) => {
-        if (response.status === 200) {
-          if (response.data.error) {
-            fail(response.data.error)
-          } else {
-            signTransaction(response.data.result, (signed) => {
-              return this.axios.post('/vexapi/sendtx', {
-                rawtx: signed
-              })
-            })
-          }
-        } else {
-          fail('error-building-tx')
-        }
-      }).then((response) => {
-        success(response.data.result)
-      }).catch((err) => {
-        fail(err)
-      })
-    }
-     generatePaymentBill(token, quantity, concept, cb) {
-      let currentAddress = sessionStorageProxy.getItem('currentAddress')
-       if (!currentAddress) {
-        cb('login-first')
-        this.emit('need-login')
-        return
-      }
-       let fail = (err) => {
-        if (err.response && (err.response.status === 401)) {
-          this.emit('need-login')
-        }
-         cb('error-creating-report')
-      }
-       let success = (txid) => {
-        cb(null, txid)
-      }
-       this.axios.post('/vexapi/report', {
-        "text": `::`,
-        "source": currentAddress
-      }).then((response) => {
-        if (response.status === 200) {
-          signTransaction(response.data.result, (signed) => {
-            return this.axios.post('/vexapi/sendtx', {
-              rawtx: signed
-            })
-          })
-        } else {
-          fail()
-        }
-      }).then((response) => {
-        success(response.data.result)
-      }).catch((err) => {
-        fail(err)
-      })
-    }*/
-
   }, {
     key: 'getFiatDepositReports',
     value: function getFiatDepositReports(cb) {
@@ -2588,65 +2285,35 @@ var VexLib = function (_EventEmitter) {
         cb(null, status);
       };
 
-      if (this.experiments && this._ex_generateDepositAddressEnabled) {
-        var doExperiment = function () {
-          var _ref14 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee12() {
-            var res;
-            return regeneratorRuntime.wrap(function _callee12$(_context12) {
-              while (1) {
-                switch (_context12.prev = _context12.next) {
-                  case 0:
-                    _context12.next = 2;
-                    return _xcpjsv2.default.broadcast(currentAddress, Math.floor(Date.now() / 1000), 0, null, 'GENADDR:' + token);
+      var doCall = function () {
+        var _ref14 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee12() {
+          var res;
+          return regeneratorRuntime.wrap(function _callee12$(_context12) {
+            while (1) {
+              switch (_context12.prev = _context12.next) {
+                case 0:
+                  _context12.next = 2;
+                  return _xcpjsv2.default.broadcast(currentAddress, Math.floor(Date.now() / 1000), 0, null, 'GENADDR:' + token);
 
-                  case 2:
-                    res = _context12.sent;
+                case 2:
+                  res = _context12.sent;
 
-                    success(res);
-                    _this24.experimentResult({
-                      type: 'generateDepositAddress',
-                      address: currentAddress, token: token, res: res
-                    });
+                  success(res);
 
-                  case 5:
-                  case 'end':
-                    return _context12.stop();
-                }
+                case 4:
+                case 'end':
+                  return _context12.stop();
               }
-            }, _callee12, _this24);
-          }));
+            }
+          }, _callee12, _this24);
+        }));
 
-          return function doExperiment() {
-            return _ref14.apply(this, arguments);
-          };
-        }();
+        return function doCall() {
+          return _ref14.apply(this, arguments);
+        };
+      }();
 
-        doExperiment();
-      } else {
-        this.vex('create_broadcast', {
-          source: currentAddress,
-          text: 'GENADDR:' + token,
-          fee_fraction: 0,
-          fee: 10000,
-          timestamp: Math.floor(Date.now() / 1000),
-          value: 0,
-          fee_per_kb: 10000
-        }, function (err, data) {
-          if (err) {
-            fail(err);
-          } else {
-            signTransaction(data.result, function (signedTransaction) {
-              _this24.axios.post('/vexapi/sendtx', {
-                rawtx: signedTransaction
-              }).then(function (response) {
-                success(response.data.result);
-              }).catch(function (err) {
-                fail(err);
-              });
-            });
-          }
-        });
-      }
+      doCall();
     }
   }, {
     key: 'getTokenDepositAddress',
