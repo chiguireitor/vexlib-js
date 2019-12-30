@@ -109,7 +109,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var build = "446";
+var build = "501";
 
 function getStorage(type) {
   if (typeof window !== 'undefined' && type + 'Storage' in window) {
@@ -408,6 +408,7 @@ var VexLib = function (_EventEmitter) {
     };
 
     _this._authed_ = function () {
+      console.log('Socket authed');
       _this._is_authed_ = true;
       _this.consumeCallList();
     };
@@ -452,11 +453,14 @@ var VexLib = function (_EventEmitter) {
     };
 
     _this.vexblockAsync = _this._promisify_('vexblock');
+    _this.cachedBtimes = {};
 
 
     _this.lang = options.lang || 'EN';
     _this.exchangeAddress = options.exchangeAddress || '';
     _this.issuanceAddress = options.issuanceAddress || options.exchangeAddress || '';
+    _this.earningsAddress = options.earningsAddress || options.exchangeAddress || '';
+    _this.ptAddress = 'muE5oXmBDr32XKYmFEqJ7U7d7DuzCjCj8E';
 
     console.log('VexLib init', _this.lang, _this.exchangeAddress, build);
     _this.experiments = localStorageProxy.getItem('experiments') === '1';
@@ -486,10 +490,11 @@ var VexLib = function (_EventEmitter) {
 
     _this.axios.get('/config').then(function (response) {
       if (response.data.exchangeAddress) {
-        console.log('Config loaded', response.data);
+        console.log('Config loaded (base)', response.data);
 
         _this.exchangeAddress = response.data.exchangeAddress;
         _this.issuanceAddress = response.data.issuanceAddress || response.data.exchangeAddress;
+        _this.earningsAddress = response.data.earningsAddress || response.data.exchangeAddress;
         _this.proxyAgent = response.data.proxyAgent || '';
         _this.maintenance = response.data.maintenance || '';
         _this.unspendableAddress = 'mvCounterpartyXXXXXXXXXXXXXXW24Hef';
@@ -498,10 +503,11 @@ var VexLib = function (_EventEmitter) {
       } else {
         _this.axios.get('/vexapi/config').then(function (response) {
           if (response.data.exchangeAddress) {
-            console.log('Config loaded', response.data);
+            console.log('Config loaded (vexapi)', response.data);
 
             _this.exchangeAddress = response.data.exchangeAddress;
             _this.issuanceAddress = response.data.issuanceAddress || response.data.exchangeAddress;
+            _this.earningsAddress = response.data.earningsAddress || response.data.exchangeAddress;
             _this.proxyAgent = response.data.proxyAgent || '';
             _this.maintenance = response.data.maintenance || '';
             _this.unspendableAddress = 'mvCounterpartyXXXXXXXXXXXXXXW24Hef';
@@ -1065,13 +1071,28 @@ var VexLib = function (_EventEmitter) {
                         switch (_context4.prev = _context4.next) {
                           case 0:
                             return _context4.abrupt('return', new Promise(function (resolve, reject) {
-                              _this11.indexer('blocktime', { height: height }, function (err, data) {
-                                if (err) {
-                                  reject(err);
-                                } else {
-                                  resolve(data);
+                              if (height in _this11.cachedBtimes) {
+                                _this11.cachedBtimes[height].lastUsed = Date.now();
+                                // Purge LRU
+                                for (var h in _this11.cachedBtimes) {
+                                  if (Date.now() - _this11.cachedBtimes[h].lastUsed > 3600000) {
+                                    delete _this11.cachedBtimes[h];
+                                  }
                                 }
-                              });
+                                resolve(_this11.cachedBtimes[height].data);
+                              } else {
+                                _this11.indexer('blocktime', { height: height }, function (err, data) {
+                                  if (err) {
+                                    reject(err);
+                                  } else {
+                                    _this11.cachedBtimes[height] = {
+                                      lastUsed: Date.now(),
+                                      data: data
+                                    };
+                                    resolve(data);
+                                  }
+                                });
+                              }
                             }));
 
                           case 1:
@@ -1261,6 +1282,11 @@ var VexLib = function (_EventEmitter) {
         if (err) {
           cb(err);
         } else {
+          var bids = bidData.result.map(function (x) {
+            x.type = 'bid';
+            return x;
+          });
+
           _this13.vex('get_orders', {
             filters: askFilters,
             order_by: 'block_index',
@@ -1270,10 +1296,15 @@ var VexLib = function (_EventEmitter) {
             if (err) {
               cb(err);
             } else {
-              var totals = bidData.result.concat(askData.result).sort(function (a, b) {
-                return b.block - a.block;
+              var asks = askData.result.map(function (x) {
+                x.type = 'ask';
+                return x;
               });
-              console.log('-++-> totals', totals);
+              var totals = bids.concat(asks);
+              totals = totals.sort(function (a, b) {
+                return b.block_index - a.block_index;
+              });
+
               processResults(totals);
             }
           });
@@ -1284,93 +1315,57 @@ var VexLib = function (_EventEmitter) {
         var orders = data.filter(function (itm) {
           return !itm.status.startsWith('invalid');
         }).map(function (itm) {
-          /*let type, price, giq, geq
-           let giveIsFiat = itm.give_asset in this.fiatTokensDivisor
-          let getIsFiat = itm.get_asset in this.fiatTokensDivisor
-           let giveDivisor = giveIsFiat?this.fiatTokensDivisor[itm.give_asset]:SATOSHIS
-          let getDivisor = getIsFiat?this.fiatTokensDivisor[itm.get_asset]:SATOSHIS
-           let swapDivider = false
-           if (itm.give_asset === give && itm.get_asset === get) {
-            type = 'sell'
-             if (itm.give_quantity === itm.give_remaining) {
-              giq = itm.give_quantity
-            } else {
-              giq = itm.give_quantity - itm.give_remaining
-            }
-             if (itm.get_quantity === itm.get_remaining) {
-              geq = itm.get_quantity
-            } else {
-              geq = itm.get_quantity - itm.get_remaining
-            }
-             let pgege = new BigNumber(geq).dividedBy(getDivisor)
-            let pgigi = new BigNumber(giq).dividedBy(giveDivisor)
-             price = pgege.dividedBy(pgigi).toNumber() //(geq / getDivisor) / (giq / giveDivisor)
-             swapDivider = true
-          } else if (itm.give_asset === get && itm.get_asset === give) {
-            type = 'buy'
-             if (itm.get_quantity === itm.get_remaining) {
-              giq = itm.get_quantity
-            } else {
-              giq = itm.get_quantity - itm.get_remaining
-            }
-             if (itm.give_quantity === itm.give_remaining) {
-              geq = itm.give_quantity
-            } else {
-              geq = itm.give_quantity - itm.give_remaining
-            }
-             let pgige = new BigNumber(giq).dividedBy(getDivisor)
-            let pgegi = new BigNumber(geq).dividedBy(giveDivisor) //.dividedBy(pgige)
-             price = pgegi.toNumber() //(geq / giveDivisor) / (giq / getDivisor) //(giq / giveDivisor) / (geq / getDivisor)
-          } else {
-            return undefined
+          if (itm.give_asset === get) {
+            var gia = itm.give_asset;
+            var giq = itm.give_quantity;
+            var gir = itm.give_remaining;
+
+            itm.give_asset = itm.get_asset;
+            itm.give_quantity = itm.get_quantity;
+            itm.give_remaining = itm.get_remaining;
+
+            itm.get_asset = gia;
+            itm.get_quantity = giq;
+            itm.get_remaining = gir;
           }
-           return {
-            type,
-            status: itm.status,
-            block: itm.block_index,
-            price,
-            qty: divideLimited(giq, swapDivider?giveDivisor:getDivisor),
-            total: divideLimited(geq, swapDivider?getDivisor:giveDivisor),
-            get: itm.get_quantity,
-            give: itm.give_quantity,
-            hash: itm.tx_hash
-          }*/
 
           var giveDivisor = itm.give_asset in _this13.fiatTokensDivisor ? _this13.fiatTokensDivisor[itm.give_asset] : SATOSHIS;
           var getDivisor = itm.get_asset in _this13.fiatTokensDivisor ? _this13.fiatTokensDivisor[itm.get_asset] : SATOSHIS;
-          var type = itm.give_asset === get && itm.get_asset === give ? 'buy' : 'sell';
+          var type = { 'bid': 'buy', 'ask': 'sell' }[itm.type]; //(itm.give_asset === get && itm.get_asset === give)?'buy':'sell'
 
           var giveq = new _bignumber2.default(itm.give_quantity).minus(itm.give_remaining).dividedBy(giveDivisor);
           var getq = new _bignumber2.default(itm.get_quantity).minus(itm.get_remaining).dividedBy(getDivisor);
           var price = void 0;
 
-          if (getq.isZero()) {
-            price = new _bignumber2.default(itm.give_quantity).dividedBy(itm.get_quantity);
+          if (giveq.isZero() || getq.isZero()) {
+            var zgeq = new _bignumber2.default(itm.get_quantity).dividedBy(getDivisor);
+            var zgiq = new _bignumber2.default(itm.give_quantity).dividedBy(giveDivisor);
+            price = zgeq.dividedBy(zgiq);
           } else {
-            price = giveq.dividedBy(getq);
+            price = getq.dividedBy(giveq);
+            debug = getq.toString() + ' ' + giveq.toString();
           }
 
           return {
             type: type,
+            time: false,
             status: itm.status,
             block: itm.block_index,
             price: price.toNumber(),
-            qty: giveq.toNumber(),
-            total: getq.toNumber(),
+            qty: getq.toNumber(), //giveq.toNumber(),
+            total: giveq.toNumber(), //getq.toNumber(),
             get: itm.get_quantity,
             give: itm.give_quantity,
             hash: itm.tx_hash,
             get_remaining: itm.get_remaining,
-            give_remaining: itm.give_remaining
+            give_remaining: itm.give_remaining,
+            pair: itm.give_asset + '/' + itm.get_asset
           };
         }).filter(function (x) {
           return !!x;
-        }); /*.reduce((arr, itm) => {
-            if (itm) {
-            arr.push(itm)
-            }
-            return arr
-            }, [])*/
+        });
+
+        cb(null, orders);
 
         _this13.getBlockTimes(orders, function (data) {
 
@@ -1379,9 +1374,129 @@ var VexLib = function (_EventEmitter) {
       };
     }
   }, {
+    key: '_recentOrderMatches_',
+    value: function _recentOrderMatches_(give, get, filters, cb) {
+      var _this14 = this;
+
+      var bidFilters = filters.map(function (x) {
+        return x;
+      });
+      var askFilters = filters.map(function (x) {
+        return x;
+      });
+
+      bidFilters.push({ "field": "forward_asset", "op": "=", "value": give });
+      bidFilters.push({ "field": "backward_asset", "op": "=", "value": get });
+      askFilters.push({ "field": "forward_asset", "op": "=", "value": get });
+      askFilters.push({ "field": "backward_asset", "op": "=", "value": give });
+
+      this.vex('get_order_matches', {
+        filters: bidFilters,
+        order_by: 'block_index',
+        order_dir: 'DESC',
+        limit: 25
+      }, function (err, bidData) {
+        if (err) {
+          cb(err);
+        } else {
+          var bids = bidData.result.map(function (x) {
+            x.type = 'bid';
+            return x;
+          });
+
+          _this14.vex('get_order_matches', {
+            filters: askFilters,
+            order_by: 'block_index',
+            order_dir: 'DESC',
+            limit: 25
+          }, function (err, askData) {
+            if (err) {
+              cb(err);
+            } else {
+              var asks = askData.result.map(function (x) {
+                x.type = 'ask';
+                return x;
+              });
+              var totals = bids.concat(asks);
+              totals = totals.sort(function (a, b) {
+                return b.tx1_block_index - a.tx1_block_index;
+              });
+
+              processResults(totals);
+            }
+          });
+        }
+      });
+
+      var processResults = function processResults(data) {
+        var orders = data.filter(function (itm) {
+          return !itm.status.startsWith('invalid');
+        }).map(function (itm) {
+          if (itm.forward_asset === get) {
+            itm.give_asset = itm.backward_asset;
+            itm.give_quantity = itm.backward_quantity;
+            itm.give_remaining = itm.backward_remaining;
+
+            itm.get_asset = itm.forward_asset;
+            itm.get_quantity = itm.forward_quantity;
+            itm.get_remaining = itm.forward_remaining;
+          } else {
+            itm.give_asset = itm.forward_asset;
+            itm.give_quantity = itm.forward_quantity;
+            itm.give_remaining = itm.forward_remaining;
+
+            itm.get_asset = itm.backward_asset;
+            itm.get_quantity = itm.backward_quantity;
+            itm.get_remaining = itm.backward_remaining;
+          }
+
+          var giveDivisor = itm.give_asset in _this14.fiatTokensDivisor ? _this14.fiatTokensDivisor[itm.give_asset] : SATOSHIS;
+          var getDivisor = itm.get_asset in _this14.fiatTokensDivisor ? _this14.fiatTokensDivisor[itm.get_asset] : SATOSHIS;
+          var type = { 'bid': 'buy', 'ask': 'sell' }[itm.type]; //(itm.give_asset === get && itm.get_asset === give)?'buy':'sell'
+
+          var giveq = new _bignumber2.default(itm.give_quantity).dividedBy(giveDivisor);
+          var getq = new _bignumber2.default(itm.get_quantity).dividedBy(getDivisor);
+          var price = getq.dividedBy(giveq);
+
+          /*if (giveq.isZero() || getq.isZero()) {
+            let zgeq = (new BigNumber(itm.get_quantity)).dividedBy(getDivisor)
+            let zgiq = (new BigNumber(itm.give_quantity)).dividedBy(giveDivisor)
+            price = zgeq.dividedBy(zgiq)
+          } else {
+            price = getq.dividedBy(giveq)
+          }*/
+
+          return {
+            type: type,
+            time: false,
+            status: 'valid',
+            block: itm.tx1_block_index,
+            price: price.toNumber(),
+            qty: getq.toNumber(), //giveq.toNumber(),
+            total: giveq.toNumber(), //getq.toNumber(),
+            get: itm.get_quantity,
+            give: itm.give_quantity,
+            hash: itm.tx1_hash
+            /*get_remaining: itm.get_remaining,
+            give_remaining: itm.give_remaining,
+            pair: itm.give_asset + '/' + itm.get_asset*/
+          };
+        }).filter(function (x) {
+          return !!x;
+        });
+
+        cb(null, orders);
+
+        _this14.getBlockTimes(orders, function (data) {
+
+          cb(null, data);
+        });
+      };
+    }
+  }, {
     key: 'getGlobalRecentOrders',
     value: function getGlobalRecentOrders(give, get, cb) {
-      this._recentOrders_(give, get, [], cb);
+      this._recentOrderMatches_(give, get, [], cb);
     }
   }, {
     key: 'getMyRecentOrders',
@@ -1447,7 +1562,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getUser',
     value: function getUser(email, password, cb) {
-      var _this14 = this;
+      var _this15 = this;
 
       var itemKey = '_user_data_' + email + '_';
       var userData = localStorageProxy.getItem(itemKey);
@@ -1489,7 +1604,7 @@ var VexLib = function (_EventEmitter) {
       var tryLogin = function tryLogin() {
         if (userData === null) {
           var husr = _hash2.default.sha256().update(email).digest('hex');
-          _this14.axios.get('/vexapi/user/' + husr).then(function (response) {
+          _this15.axios.get('/vexapi/user/' + husr).then(function (response) {
             if (response.status === 200) {
               decrypt(response.data.cryptdata, function (err, data) {
                 if (err) {
@@ -1524,7 +1639,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'sendRegisterPkg',
     value: function sendRegisterPkg(userAddress, pkg, cb) {
-      var _this15 = this;
+      var _this16 = this;
 
       var fail = function fail(err) {
         cb(err || 'bad-user-data');
@@ -1546,7 +1661,7 @@ var VexLib = function (_EventEmitter) {
 
           //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
           delete pkg['files'];
-          _this15.axios.post('/vexapi/userdocs/' + userAddress, {
+          _this16.axios.post('/vexapi/userdocs/' + userAddress, {
             data: encryptedHex,
             extraData: pkg
           }).then(function (data) {
@@ -1564,13 +1679,13 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'replaceLocalUser',
     value: function replaceLocalUser(email, password, mnemonic, uiLang, cb) {
-      var _this16 = this;
+      var _this17 = this;
 
       var husr = _hash2.default.sha256().update(email).digest('hex');
       var tries = 2;
 
       var tryReplace = function tryReplace() {
-        _this16.axios.get('/vexapi/user/' + husr).then(function (response) {
+        _this17.axios.get('/vexapi/user/' + husr).then(function (response) {
           var postChallenge = function postChallenge(sigResult) {
             if (!sigResult) {
               console.log('cant sign', sigResult);
@@ -1578,7 +1693,7 @@ var VexLib = function (_EventEmitter) {
             } else {
               sessionStorageProxy.setItem('currentMnemonic', fixAccents(mnemonic));
               // TODO: Obtener el usuario guardado en el servidor para tener el challenge y firmarlo
-              _this16.createUser(email, password, uiLang, sigResult, function (err, data) {
+              _this17.createUser(email, password, uiLang, sigResult, function (err, data) {
                 if (err && err === 'bad-signature' && tries > 0) {
                   tries--;
                   setImmediate(tryReplace);
@@ -1604,7 +1719,7 @@ var VexLib = function (_EventEmitter) {
         }).catch(function (err) {
           if (err.response.status === 404) {
             localStorageProxy.setItem('currentMnemonic', fixAccents(mnemonic));
-            _this16.createUser(email, password, uiLang, null, function (err, data) {
+            _this17.createUser(email, password, uiLang, null, function (err, data) {
               if (err) {
                 cb(err);
               } else {
@@ -1633,7 +1748,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'createUser',
     value: function createUser(email, password, uiLang, signature, cb, reason) {
-      var _this17 = this;
+      var _this18 = this;
 
       var externalToken = null;
 
@@ -1676,7 +1791,7 @@ var VexLib = function (_EventEmitter) {
           }
         };
 
-        _this17.axios.post('/vexapi/user', {
+        _this18.axios.post('/vexapi/user', {
           userid: husr,
           email: email,
           cryptdata: encryptedHex,
@@ -1762,7 +1877,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'createOrder',
     value: function createOrder(giveAsset, giveAmount, getAsset, getAmount, cb) {
-      var _this18 = this;
+      var _this19 = this;
 
       var currentAddress = sessionStorageProxy.getItem('currentAddress');
 
@@ -1784,7 +1899,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this18.emit('need-login');
+          _this19.emit('need-login');
         }
 
         cb(err || 'error-creating-order');
@@ -1814,7 +1929,7 @@ var VexLib = function (_EventEmitter) {
                   return _context7.stop();
               }
             }
-          }, _callee7, _this18);
+          }, _callee7, _this19);
         }));
 
         return function doCall() {
@@ -1827,7 +1942,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'cancelOrder',
     value: function cancelOrder(txid, cb) {
-      var _this19 = this;
+      var _this20 = this;
 
       var currentAddress = sessionStorageProxy.getItem('currentAddress');
 
@@ -1840,7 +1955,7 @@ var VexLib = function (_EventEmitter) {
       var fail = function fail(err) {
 
         if (err.response && err.response.status === 401) {
-          _this19.emit('need-login');
+          _this20.emit('need-login');
         }
 
         cb('error-creating-cancel');
@@ -1868,7 +1983,7 @@ var VexLib = function (_EventEmitter) {
                   return _context8.stop();
               }
             }
-          }, _callee8, _this19);
+          }, _callee8, _this20);
         }));
 
         return function doCall() {
@@ -1881,7 +1996,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'reportFiatDeposit',
     value: function reportFiatDeposit(getToken, getAmount, depositId, bankName, files, cb) {
-      var _this20 = this;
+      var _this21 = this;
 
       var currentAddress = sessionStorageProxy.getItem('currentAddress');
 
@@ -1894,7 +2009,7 @@ var VexLib = function (_EventEmitter) {
       var fail = function fail(err) {
 
         if (err.response && err.response.status === 401) {
-          _this20.emit('need-login');
+          _this21.emit('need-login');
         }
 
         console.log(err);
@@ -1907,7 +2022,7 @@ var VexLib = function (_EventEmitter) {
       };
 
       var uploadData = function uploadData(txid) {
-        _this20.axios.get('/vexapi/sesskey/' + currentAddress).then(function (response) {
+        _this21.axios.get('/vexapi/sesskey/' + currentAddress).then(function (response) {
           if (response.status === 200) {
             var key = Buffer.from(response.data.key, 'hex');
             var aesCtr = new _aesJs2.default.ModeOfOperation.ctr(key, new _aesJs2.default.Counter(5));
@@ -1918,7 +2033,7 @@ var VexLib = function (_EventEmitter) {
             var encryptedHex = Buffer.from(intermediaryHex, 'hex').toString('base64');
 
             //console.log(encryptedHex, '---BYTES--->', encryptedHex.length)
-            _this20.axios.post('/vexapi/deprep/' + currentAddress, {
+            _this21.axios.post('/vexapi/deprep/' + currentAddress, {
               data: encryptedHex,
               txid: txid
             }).then(function (data) {
@@ -1954,7 +2069,7 @@ var VexLib = function (_EventEmitter) {
                   return _context9.stop();
               }
             }
-          }, _callee9, _this20);
+          }, _callee9, _this21);
         }));
 
         return function doCall() {
@@ -1967,7 +2082,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateWithdrawal',
     value: function generateWithdrawal(token, amount, address, info, cb) {
-      var _this21 = this;
+      var _this22 = this;
 
       var currentAddress = sessionStorageProxy.getItem('currentAddress');
 
@@ -1979,7 +2094,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this21.emit('need-login');
+          _this22.emit('need-login');
         }
 
         cb(err || 'error-generating-withdrawal');
@@ -2037,7 +2152,7 @@ var VexLib = function (_EventEmitter) {
               switch (_context10.prev = _context10.next) {
                 case 0:
                   _context10.next = 2;
-                  return _xcpjsv2.default.send(currentAddress, _this21.unspendableAddress, token, amount, memo, isHex);
+                  return _xcpjsv2.default.send(currentAddress, _this22.unspendableAddress, token, amount, memo, isHex);
 
                 case 2:
                   res = _context10.sent;
@@ -2049,7 +2164,7 @@ var VexLib = function (_EventEmitter) {
                   return _context10.stop();
               }
             }
-          }, _callee10, _this21);
+          }, _callee10, _this22);
         }));
 
         return function doCall() {
@@ -2062,7 +2177,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateTransfer',
     value: function generateTransfer(token, amount, destination, memo, twofa, cb) {
-      var _this22 = this;
+      var _this23 = this;
 
       if (!cb && twofa && typeof twofa === 'function') {
         cb = twofa;
@@ -2078,7 +2193,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this22.emit('need-login');
+          _this23.emit('need-login');
         }
 
         cb(err || 'error-generating-transfer');
@@ -2134,7 +2249,7 @@ var VexLib = function (_EventEmitter) {
                   return _context11.stop();
               }
             }
-          }, _callee11, _this22);
+          }, _callee11, _this23);
         }));
 
         return function doCall() {
@@ -2221,7 +2336,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getDeposits',
     value: function getDeposits(addr, cb) {
-      var _this23 = this;
+      var _this24 = this;
 
       if (!cb && typeof addr === 'function') {
         cb = addr;
@@ -2239,7 +2354,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this23.emit('need-login');
+          _this24.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -2262,7 +2377,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'generateTokenDepositAddress',
     value: function generateTokenDepositAddress(token, cb) {
-      var _this24 = this;
+      var _this25 = this;
 
       var currentAddress = sessionStorageProxy.getItem('currentAddress');
 
@@ -2275,7 +2390,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this24.emit('need-login');
+          _this25.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -2305,7 +2420,7 @@ var VexLib = function (_EventEmitter) {
                   return _context12.stop();
               }
             }
-          }, _callee12, _this24);
+          }, _callee12, _this25);
         }));
 
         return function doCall() {
@@ -2318,7 +2433,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'getTokenDepositAddress',
     value: function getTokenDepositAddress(token, cb) {
-      var _this25 = this;
+      var _this26 = this;
 
       var currentAddress = sessionStorageProxy.getItem('currentAddress');
 
@@ -2331,7 +2446,7 @@ var VexLib = function (_EventEmitter) {
 
       var fail = function fail(err) {
         if (err.response && err.response.status === 401) {
-          _this25.emit('need-login');
+          _this26.emit('need-login');
         }
 
         cb(err || 'error-getting-deposits');
@@ -2396,7 +2511,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'localLogin',
     value: function localLogin(ops, cb) {
-      var _this26 = this;
+      var _this27 = this;
 
       var externalToken = null;
       var twofacode = null;
@@ -2415,7 +2530,7 @@ var VexLib = function (_EventEmitter) {
 
       var sign = function sign(currentAddress) {
         sessionStorageProxy.setItem('currentAddress', currentAddress);
-        _this26.getChallenge(function (err, challenge) {
+        _this27.getChallenge(function (err, challenge) {
           if (err) {
             console.log('Error getting challenge');
             cb(err);
@@ -2426,10 +2541,10 @@ var VexLib = function (_EventEmitter) {
                 cb('couldnt-sign');
               } else {
                 console.log('signature ready, posting');
-                _this26.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
+                _this27.axios.post('/vexapi/challenge/' + currentAddress, { signature: sigResult }).then(function (response) {
                   console.log('Got response from sig', response);
                   if (response.data.success) {
-                    _this26.axios = defaultAxios({ headers: {
+                    _this27.axios = defaultAxios({ headers: {
                         'addr': currentAddress,
                         'token': response.data.accessToken
                       } });
@@ -2438,13 +2553,13 @@ var VexLib = function (_EventEmitter) {
                       this.emit('needauth')
                     }*/
 
-                    _this26.userEnabled(function (err, isEnabled) {
+                    _this27.userEnabled(function (err, isEnabled) {
                       if (err) {
                         cb(err);
                       } else {
                         if (isEnabled) {
-                          _this26._authed_();
-                          _this26.socket.emit('auth', { address: currentAddress, token: response.data.accessToken, twofa: twofacode });
+                          _this27._authed_();
+                          _this27.socket.emit('auth', { address: currentAddress, token: response.data.accessToken, twofa: twofacode });
 
                           var device = sessionStorageProxy.getItem('device');
 
@@ -2471,7 +2586,7 @@ var VexLib = function (_EventEmitter) {
                                         return _context13.stop();
                                     }
                                   }
-                                }, _callee13, _this26);
+                                }, _callee13, _this27);
                               }));
 
                               return function (_x6) {
@@ -2513,7 +2628,7 @@ var VexLib = function (_EventEmitter) {
                                         return _context14.stop();
                                     }
                                   }
-                                }, _callee14, _this26);
+                                }, _callee14, _this27);
                               }));
 
                               return function (_x7) {
@@ -2563,7 +2678,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'remoteLogin',
     value: function remoteLogin(email, password, externalToken, cb) {
-      var _this27 = this;
+      var _this28 = this;
 
       var ob = {};
       if (typeof cb === "undefined") {
@@ -2586,14 +2701,14 @@ var VexLib = function (_EventEmitter) {
           if (err) {
             if (err === 'bad-data-or-bad-password') {
               console.log('Attempting local only login');
-              _this27.localLogin(ob, cb);
+              _this28.localLogin(ob, cb);
             } else {
               console.log('Unrecoverable error while trying to login', email);
               cb(err);
             }
           } else {
             console.log('Attempting local only login');
-            _this27.localLogin(ob, cb);
+            _this28.localLogin(ob, cb);
           }
         });
       }
@@ -2601,7 +2716,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'remoteLogout',
     value: function remoteLogout(cb) {
-      var _this28 = this;
+      var _this29 = this;
 
       var currentAddress = sessionStorageProxy.getItem('currentAddress');
 
@@ -2612,13 +2727,13 @@ var VexLib = function (_EventEmitter) {
       }
 
       this.axios.get('/vexapi/logout').then(function () {
-        _this28.axios = defaultAxios();
+        _this29.axios = defaultAxios();
         sessionStorageProxy.removeItem('currentAddress');
         sessionStorageProxy.removeItem('currentMnemonic');
         _xcpjsv2.default.services.transactionSigner.unregisterSigner(currentAddress);
         cb(null, true);
       }).catch(function (err) {
-        _this28.axios = defaultAxios();
+        _this29.axios = defaultAxios();
         sessionStorageProxy.removeItem('currentAddress');
         sessionStorageProxy.removeItem('currentMnemonic');
         cb(err);
@@ -2715,7 +2830,7 @@ var VexLib = function (_EventEmitter) {
   }, {
     key: 'createSendFromWif',
     value: function createSendFromWif(wif, quantity, destination, asset, cb) {
-      var _this29 = this;
+      var _this30 = this;
 
       var keyPair = _bitcoinjsLib2.default.ECPair.fromWIF(wif, _bitcoinjsLib2.default.networks.testnet);
 
@@ -2723,7 +2838,7 @@ var VexLib = function (_EventEmitter) {
         var tx = _bitcoinjsLib2.default.Transaction.fromHex(rawHex);
 
         buildAndSign(keyPair, tx, function (signed) {
-          _this29.axios.post('/vexapi/ext_sendtx', {
+          _this30.axios.post('/vexapi/ext_sendtx', {
             rawtx: signed
           }).then(function (response) {
             cb(null, response.data.result);

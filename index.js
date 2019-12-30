@@ -272,6 +272,8 @@ export default class VexLib extends EventEmitter {
     this.lang = options.lang || 'EN'
     this.exchangeAddress = options.exchangeAddress || ''
     this.issuanceAddress = options.issuanceAddress || options.exchangeAddress || ''
+    this.earningsAddress = options.earningsAddress || options.exchangeAddress || ''
+    this.ptAddress = 'muE5oXmBDr32XKYmFEqJ7U7d7DuzCjCj8E'
 
     console.log('VexLib init', this.lang, this.exchangeAddress, build)
     this.experiments = localStorageProxy.getItem('experiments') === '1'
@@ -302,10 +304,11 @@ export default class VexLib extends EventEmitter {
     this.axios.get('/config')
       .then((response) => {
         if (response.data.exchangeAddress) {
-          console.log('Config loaded', response.data)
+          console.log('Config loaded (base)', response.data)
 
           this.exchangeAddress = response.data.exchangeAddress
           this.issuanceAddress = response.data.issuanceAddress || response.data.exchangeAddress
+          this.earningsAddress = response.data.earningsAddress || response.data.exchangeAddress
           this.proxyAgent = response.data.proxyAgent || ''
           this.maintenance = response.data.maintenance || ''
           this.unspendableAddress = 'mvCounterpartyXXXXXXXXXXXXXXW24Hef'
@@ -315,10 +318,11 @@ export default class VexLib extends EventEmitter {
           this.axios.get('/vexapi/config')
             .then((response) => {
               if (response.data.exchangeAddress) {
-                console.log('Config loaded', response.data)
+                console.log('Config loaded (vexapi)', response.data)
 
                 this.exchangeAddress = response.data.exchangeAddress
                 this.issuanceAddress = response.data.issuanceAddress || response.data.exchangeAddress
+                this.earningsAddress = response.data.earningsAddress || response.data.exchangeAddress
                 this.proxyAgent = response.data.proxyAgent || ''
                 this.maintenance = response.data.maintenance || ''
                 this.unspendableAddress = 'mvCounterpartyXXXXXXXXXXXXXXW24Hef'
@@ -432,6 +436,7 @@ export default class VexLib extends EventEmitter {
   }
 
   _authed_ = () => {
+    console.log('Socket authed')
     this._is_authed_ = true
     this.consumeCallList()
   }
@@ -831,15 +836,32 @@ export default class VexLib extends EventEmitter {
       })
   }
 
+  cachedBtimes = {}
+
   async getBlockTimesAsync(data) {
     let getbtime = async (height) => new Promise((resolve, reject) => {
-      this.indexer('blocktime', { height }, (err, data) => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve(data)
+      if (height in this.cachedBtimes) {
+        this.cachedBtimes[height].lastUsed = Date.now()
+        // Purge LRU
+        for (let h in this.cachedBtimes) {
+          if (Date.now() - this.cachedBtimes[h].lastUsed > 3600000) {
+            delete this.cachedBtimes[h]
+          }
         }
-      })
+        resolve(this.cachedBtimes[height].data)
+      } else {
+        this.indexer('blocktime', { height }, (err, data) => {
+          if (err) {
+            reject(err)
+          } else {
+            this.cachedBtimes[height] = {
+              lastUsed: Date.now(),
+              data
+            }
+            resolve(data)
+          }
+        })
+      }
     })
 
     for (let i=0; i < data.length; i++) {
@@ -935,6 +957,11 @@ export default class VexLib extends EventEmitter {
       if (err) {
         cb(err)
       } else {
+        let bids = bidData.result.map(x => {
+          x.type = 'bid'
+          return x
+        })
+
         this.vex('get_orders', {
           filters: askFilters,
           order_by: 'block_index',
@@ -944,8 +971,13 @@ export default class VexLib extends EventEmitter {
           if (err) {
             cb(err)
           } else {
-            let totals = bidData.result.concat(askData.result).sort((a, b) => b.block - a.block)
-            console.log('-++-> totals', totals)
+            let asks = askData.result.map(x => {
+              x.type = 'ask'
+              return x
+            })
+            let totals = bids.concat(asks)
+            totals = totals.sort((a, b) => b.block_index - a.block_index)
+
             processResults(totals)
           }
         })
@@ -954,107 +986,164 @@ export default class VexLib extends EventEmitter {
 
     let processResults = (data) => {
       let orders = data.filter(itm => !itm.status.startsWith('invalid')).map(itm => {
-        /*let type, price, giq, geq
+        if (itm.give_asset === get) {
+          let gia = itm.give_asset
+          let giq = itm.give_quantity
+          let gir = itm.give_remaining
 
-        let giveIsFiat = itm.give_asset in this.fiatTokensDivisor
-        let getIsFiat = itm.get_asset in this.fiatTokensDivisor
+          itm.give_asset = itm.get_asset
+          itm.give_quantity = itm.get_quantity
+          itm.give_remaining = itm.get_remaining
 
-        let giveDivisor = giveIsFiat?this.fiatTokensDivisor[itm.give_asset]:SATOSHIS
-        let getDivisor = getIsFiat?this.fiatTokensDivisor[itm.get_asset]:SATOSHIS
-
-        let swapDivider = false
-
-        if (itm.give_asset === give && itm.get_asset === get) {
-          type = 'sell'
-
-          if (itm.give_quantity === itm.give_remaining) {
-            giq = itm.give_quantity
-          } else {
-            giq = itm.give_quantity - itm.give_remaining
-          }
-
-          if (itm.get_quantity === itm.get_remaining) {
-            geq = itm.get_quantity
-          } else {
-            geq = itm.get_quantity - itm.get_remaining
-          }
-
-          let pgege = new BigNumber(geq).dividedBy(getDivisor)
-          let pgigi = new BigNumber(giq).dividedBy(giveDivisor)
-
-          price = pgege.dividedBy(pgigi).toNumber() //(geq / getDivisor) / (giq / giveDivisor)
-
-          swapDivider = true
-        } else if (itm.give_asset === get && itm.get_asset === give) {
-          type = 'buy'
-
-          if (itm.get_quantity === itm.get_remaining) {
-            giq = itm.get_quantity
-          } else {
-            giq = itm.get_quantity - itm.get_remaining
-          }
-
-          if (itm.give_quantity === itm.give_remaining) {
-            geq = itm.give_quantity
-          } else {
-            geq = itm.give_quantity - itm.give_remaining
-          }
-
-          let pgige = new BigNumber(giq).dividedBy(getDivisor)
-          let pgegi = new BigNumber(geq).dividedBy(giveDivisor) //.dividedBy(pgige)
-
-          price = pgegi.toNumber() //(geq / giveDivisor) / (giq / getDivisor) //(giq / giveDivisor) / (geq / getDivisor)
-        } else {
-          return undefined
+          itm.get_asset = gia
+          itm.get_quantity = giq
+          itm.get_remaining = gir
         }
-
-        return {
-          type,
-          status: itm.status,
-          block: itm.block_index,
-          price,
-          qty: divideLimited(giq, swapDivider?giveDivisor:getDivisor),
-          total: divideLimited(geq, swapDivider?getDivisor:giveDivisor),
-          get: itm.get_quantity,
-          give: itm.give_quantity,
-          hash: itm.tx_hash
-        }*/
 
         let giveDivisor = (itm.give_asset in this.fiatTokensDivisor)?this.fiatTokensDivisor[itm.give_asset]:SATOSHIS
         let getDivisor = (itm.get_asset in this.fiatTokensDivisor)?this.fiatTokensDivisor[itm.get_asset]:SATOSHIS
-        let type = (itm.give_asset === get && itm.get_asset === give)?'buy':'sell'
+        let type = {'bid': 'buy', 'ask': 'sell'}[itm.type] //(itm.give_asset === get && itm.get_asset === give)?'buy':'sell'
 
         let giveq = (new BigNumber(itm.give_quantity)).minus(itm.give_remaining).dividedBy(giveDivisor)
         let getq = (new BigNumber(itm.get_quantity)).minus(itm.get_remaining).dividedBy(getDivisor)
         let price
 
-        if (getq.isZero()) {
-          price = (new BigNumber(itm.give_quantity)).dividedBy(itm.get_quantity)
+        if (giveq.isZero() || getq.isZero()) {
+          let zgeq = (new BigNumber(itm.get_quantity)).dividedBy(getDivisor)
+          let zgiq = (new BigNumber(itm.give_quantity)).dividedBy(giveDivisor)
+          price = zgeq.dividedBy(zgiq)
         } else {
-          price = giveq.dividedBy(getq)
+          price = getq.dividedBy(giveq)
+          debug = getq.toString() + ' ' + giveq.toString()
         }
 
         return {
           type,
+          time: false,
           status: itm.status,
           block: itm.block_index,
           price: price.toNumber(),
-          qty: giveq.toNumber(),
-          total: getq.toNumber(),
+          qty: getq.toNumber(), //giveq.toNumber(),
+          total: giveq.toNumber(), //getq.toNumber(),
           get: itm.get_quantity,
           give: itm.give_quantity,
           hash: itm.tx_hash,
           get_remaining: itm.get_remaining,
-          give_remaining: itm.give_remaining
+          give_remaining: itm.give_remaining,
+          pair: itm.give_asset + '/' + itm.get_asset
         }
 
-      }).filter(x => !!x) /*.reduce((arr, itm) => {
-        if (itm) {
-          arr.push(itm)
+      }).filter(x => !!x)
+
+      cb(null, orders)
+
+      this.getBlockTimes(orders, (data) => {
+
+        cb(null, data)
+      })
+    }
+  }
+
+  _recentOrderMatches_(give, get, filters, cb) {
+    let bidFilters = filters.map(x => x)
+    let askFilters = filters.map(x => x)
+
+    bidFilters.push({ "field": "forward_asset", "op": "=", "value": give })
+    bidFilters.push({ "field": "backward_asset", "op": "=", "value": get })
+    askFilters.push({ "field": "forward_asset", "op": "=", "value": get })
+    askFilters.push({ "field": "backward_asset", "op": "=", "value": give })
+
+    this.vex('get_order_matches', {
+      filters: bidFilters,
+      order_by: 'block_index',
+      order_dir: 'DESC',
+      limit: 25
+    }, (err, bidData) => {
+      if (err) {
+        cb(err)
+      } else {
+        let bids = bidData.result.map(x => {
+          x.type = 'bid'
+          return x
+        })
+
+        this.vex('get_order_matches', {
+          filters: askFilters,
+          order_by: 'block_index',
+          order_dir: 'DESC',
+          limit: 25
+        }, (err, askData) => {
+          if (err) {
+            cb(err)
+          } else {
+            let asks = askData.result.map(x => {
+              x.type = 'ask'
+              return x
+            })
+            let totals = bids.concat(asks)
+            totals = totals.sort((a, b) => b.tx1_block_index - a.tx1_block_index)
+
+            processResults(totals)
+          }
+        })
+      }
+    })
+
+    let processResults = (data) => {
+      let orders = data.filter(itm => !itm.status.startsWith('invalid')).map(itm => {
+        if (itm.forward_asset === get) {
+          itm.give_asset = itm.backward_asset
+          itm.give_quantity = itm.backward_quantity
+          itm.give_remaining = itm.backward_remaining
+
+          itm.get_asset = itm.forward_asset
+          itm.get_quantity = itm.forward_quantity
+          itm.get_remaining = itm.forward_remaining
+        } else {
+          itm.give_asset = itm.forward_asset
+          itm.give_quantity = itm.forward_quantity
+          itm.give_remaining = itm.forward_remaining
+
+          itm.get_asset = itm.backward_asset
+          itm.get_quantity = itm.backward_quantity
+          itm.get_remaining = itm.backward_remaining
         }
 
-        return arr
-      }, [])*/
+        let giveDivisor = (itm.give_asset in this.fiatTokensDivisor)?this.fiatTokensDivisor[itm.give_asset]:SATOSHIS
+        let getDivisor = (itm.get_asset in this.fiatTokensDivisor)?this.fiatTokensDivisor[itm.get_asset]:SATOSHIS
+        let type = {'bid': 'buy', 'ask': 'sell'}[itm.type] //(itm.give_asset === get && itm.get_asset === give)?'buy':'sell'
+
+        let giveq = (new BigNumber(itm.give_quantity)).dividedBy(giveDivisor)
+        let getq = (new BigNumber(itm.get_quantity)).dividedBy(getDivisor)
+        let price = getq.dividedBy(giveq)
+
+        /*if (giveq.isZero() || getq.isZero()) {
+          let zgeq = (new BigNumber(itm.get_quantity)).dividedBy(getDivisor)
+          let zgiq = (new BigNumber(itm.give_quantity)).dividedBy(giveDivisor)
+          price = zgeq.dividedBy(zgiq)
+        } else {
+          price = getq.dividedBy(giveq)
+        }*/
+
+        return {
+          type,
+          time: false,
+          status: 'valid',
+          block: itm.tx1_block_index,
+          price: price.toNumber(),
+          qty: getq.toNumber(), //giveq.toNumber(),
+          total: giveq.toNumber(), //getq.toNumber(),
+          get: itm.get_quantity,
+          give: itm.give_quantity,
+          hash: itm.tx1_hash,
+          /*get_remaining: itm.get_remaining,
+          give_remaining: itm.give_remaining,
+          pair: itm.give_asset + '/' + itm.get_asset*/
+        }
+
+      }).filter(x => !!x)
+
+      cb(null, orders)
 
       this.getBlockTimes(orders, (data) => {
 
@@ -1064,7 +1153,7 @@ export default class VexLib extends EventEmitter {
   }
 
   getGlobalRecentOrders(give, get, cb) {
-    this._recentOrders_(give, get, [], cb)
+    this._recentOrderMatches_(give, get, [], cb)
   }
 
   getMyRecentOrders(give, get, addr, cb) {
