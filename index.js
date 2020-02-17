@@ -287,7 +287,9 @@ export default class VexLib extends EventEmitter {
     this.cbList = {}
     this.fiatTokensDivisor = {
       VEFT: 100,
-      VEST: 100
+      VEST: 100,
+      EURT: 100,
+      USDT: 100,
     }
 
     if (this.experiments) {
