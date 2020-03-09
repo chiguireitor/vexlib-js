@@ -1016,7 +1016,6 @@ export default class VexLib extends EventEmitter {
           price = zgeq.dividedBy(zgiq)
         } else {
           price = getq.dividedBy(giveq)
-          debug = getq.toString() + ' ' + giveq.toString()
         }
 
         return {
